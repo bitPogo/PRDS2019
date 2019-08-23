@@ -18,8 +18,18 @@
 #endif
 
 /*=====================================Globals=================================*/
+/* make sure we devide between:
+ * 0 Wenn die Eingaben formal gültig sind und jedes Wort im Text übersetzt werden kann.
+ * 1 Wenn die Eingaben formal gültig sind, im Text aber Wörter auftreten, die nicht übersetzt werden können.
+ */
 int Return;
 
+unsigned long min( unsigned long A, unsigned long B ) 
+{ 
+	return A > B ? A : B; 
+}
+
+const char* EmptyString = "\0";
 /*=====================================Types===================================*/
 /* This is supposed to live in a seperate file */
 typedef struct Bool
@@ -40,6 +50,51 @@ typedef struct PNode {
 	char* value;
 	char* key;
 } PNode;
+/*------------------------------------Basement-------------------------------*/
+const char* _getKey( const PNode* Self )
+{
+	if( NULL == Self->key )
+	{
+		return EmptyString;
+	}
+	else
+	{
+		return Self->key;
+	}
+}
+
+unsigned long longestPrefix( const PNode* Self, const char* Key )
+{
+	unsigned long To, Index;
+
+	To = min( strlen( Key ), strlen( _getKey( Self ) ) );
+	for( Index = 0; To > Index; Index++ )
+	{
+            if( Key[ Index ] != Self->key[ Index ] )
+			{
+                return Index;
+			}
+	}
+	return To;
+}
+/*----------------------------------Reading----------------------------------*/
+const char* getKey( const PNode* Self )
+{
+	return EmptyString;
+}
+/*----------------------------------Debug------------------------------------*/
+void printKeys( const PNode* Self )
+{
+	unsigned long Index;
+	if( NULL != Self->value )
+	{
+		printf( "%s:%s\n", getKey( Self ), Self->value );
+        for( Index = 0; Self->sizeOfChildren>Index; Index++ )
+		{
+			printKeys( Self->children[ Index ] );
+		}
+	}
+}
 /*===================================Utils===================================*/
 /**
  * Prints a error-message to stderr and quits the programm
