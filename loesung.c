@@ -27,6 +27,7 @@
 #ifndef CR
 #define CR 13
 #endif
+#define TO_LOWER 32
 
 /*=====================================Types===================================*/
 /* This is supposed to live in a seperate file */
@@ -166,7 +167,7 @@ char* makeStrCopy( const char* ToCopy, bool* ErrorFlag )
 
 	Len = strlen( ToCopy );
 	Len++;//nullbit
-	Dolly = (char* ) calloc( Len, sizeof( char ) );
+	Dolly = (char* ) calloc( sizeof( char ), Len );
 	if( NULL == Dolly )
 	{
 		*ErrorFlag = true;
@@ -187,6 +188,11 @@ void setValue( PNode* Self, const char* Value, bool* ErrorFlag )
 		}
 		Self->value = makeStrCopy( Value, ErrorFlag );
 	}
+}
+
+char* getValue( const PNode* Self, bool* ErrorFlag )
+{
+	return makeStrCopy( Self->value, ErrorFlag );
 }
 
 char* die() {
@@ -428,6 +434,33 @@ const PNode* findEndPointByKey(
 	return NULL;
 }
 
+char* findValueByKey(
+	const PNode* Self,
+	const char* Key,
+	bool* ErrorFlag,
+	bool IsPrefixed,
+	bool MatchExact
+) {
+	const PNode* Tmp;
+
+	Tmp = findEndPointByKey(
+		Self,
+		Key,
+		ErrorFlag,
+		IsPrefixed,
+		MatchExact
+	);
+
+	if( NULL != Tmp )
+	{
+		return getValue( Tmp, ErrorFlag );
+	}
+	else
+	{
+		return NULL;
+	}
+}
+
 short _insertPosition( const PNode* Self, char Key )
 {
 	short Start, End, Middle;
@@ -484,7 +517,7 @@ PNode* __appendChild( PNode* Where, PNode* NewChild, unsigned short Index, bool*
 
 	if( 0 == Where->sizeOfChildren )
 	{   
-		NewChildren = (PNode** ) calloc( 1, sizeof( PNode* ) );
+		NewChildren = (PNode** ) calloc( sizeof( PNode* ), 1 );
 		if( NULL == NewChildren )
 		{
 			*ErrorFlag = true;
@@ -494,7 +527,7 @@ PNode* __appendChild( PNode* Where, PNode* NewChild, unsigned short Index, bool*
 	else
 	{   
 		NewSize = Where->sizeOfChildren+1;
-		NewChildren = (PNode** ) calloc( NewSize, sizeof( PNode* ) );// this might a bit slow, but better for the memory
+		NewChildren = (PNode** ) calloc( sizeof( PNode* ), NewSize );// this might a bit slow, but better for the memory
 	
 		if( NULL == NewChildren )
 		{
@@ -981,9 +1014,11 @@ size_t min( size_t A, size_t B )
 
 /*----------------------------------DICT--------------------------------------*/
 void readInputFile( char* Path );
-int nextDict( FILE* Source );
+int nextChar( FILE* Source );
 void parseDict( FILE* Source );
 bool buildDict( const StringBuffer* Key, const StringBuffer* Value );
+bool evilFromStdin();
+bool pushToBuffer( StringBuffer* Buffer, char InputChar );
 
 int main( int ArgC, char* Arguments[] ) 
 {
@@ -1012,12 +1047,23 @@ int main( int ArgC, char* Arguments[] )
 #ifdef DEBUGPR
 	printf( "Start preproc\n" );
 #endif
+
 	readInputFile( Arguments[ 1 ] );
+
 #ifdef DEBUGPR
 	bool Internal;
 	Internal = false;
 	printKeys( Dictionary, &Internal );
+
+	printf( "Start main proc\n" );
 #endif
+
+#ifdef DEBUGPR
+	printf( "done....\n" );
+#endif
+	
+	evilFromStdin();
+
 	destroyPNode( Dictionary, true );
 	return 0;
 }
@@ -1040,15 +1086,15 @@ void readInputFile( char* Path )
 	fclose( FilePointer );
 }
 
-int nextDict( FILE* Source )
+int nextChar( FILE* Source )
 {
 	return fgetc( Source );
 }
 
 void parseDict( FILE* Source )
 {
-	size_t Pos, Index, Size;
-	bool Mode;
+	size_t Index, Size;
+	bool Mode, Pos;
 	bool Error;
 	int CurrentChar;
 	int LookAHead;
@@ -1068,7 +1114,7 @@ void parseDict( FILE* Source )
 	}
 
 	Value.string = (char*) calloc( sizeof(char), 1 );
-	if( NULL == Key.string )
+	if( NULL == Value.string )
 	{
 		fclose( Source );
 		free( Key.string );
@@ -1081,12 +1127,12 @@ void parseDict( FILE* Source )
 	Key.length = 0;
 	Value.length = 0;
 
-	LookAHead = nextDict( Source );
+	LookAHead = nextChar( Source );
 
 	while( EOF != LookAHead )
 	{
 		CurrentChar = LookAHead;
-		LookAHead = nextDict( Source );
+		LookAHead = nextChar( Source );
 		if( ferror( Source ) )
 		{
 			fclose( Source );
@@ -1096,8 +1142,6 @@ void parseDict( FILE* Source )
 			errorAndOut( "I/O error when reading." );
 		}
 
-		Pos++;
-		
 		/* CR -> LF && CR LF -> LF: Der Einfachheit halber dürfen Sie neben einem einzelnen Linefeed (LF)
 		 * auch ein carriage return(CR) oder ein „CR LF“ als Zeilenumbruch im Wörterbuch akzeptieren.
 		 */
@@ -1126,7 +1170,7 @@ void parseDict( FILE* Source )
 			||
 				EOF == LookAHead
 			||
-				1 == Pos
+				0 == Pos
 			)
 			{
 				free( Key.string );
@@ -1178,7 +1222,7 @@ void parseDict( FILE* Source )
 			}
 			
 			Value.string = (char*) calloc( sizeof(char), 1 );
-			if( NULL == Key.string )
+			if( NULL == Value.string )
 			{
 				fclose( Source );
 				free( Key.string );
@@ -1205,13 +1249,15 @@ void parseDict( FILE* Source )
 			errorAndOut( "The given dictionary is incorrectly formed." );
 		}
 
+		Pos = 1;
+
 		/*
 		 * a bit slow, could be improved by using buffers + I do not like realloc
 		 */
 		if( 0 == Mode )
 		{
 			Size = Key.length + 2;
-			Tmp = (char*) calloc( Key.length + 2, sizeof( char ) ); // Null byte + new Char
+			Tmp = (char*) calloc( sizeof( char ), Size ); // Null byte + new Char
 			if( NULL == Tmp )
 			{
 				fclose( Source );
@@ -1236,7 +1282,7 @@ void parseDict( FILE* Source )
 		else
 		{
 			Size =  Value.length + 2;
-			Tmp = (char*) calloc( Size, sizeof( char ) );
+			Tmp = (char*) calloc( sizeof( char ), Size );
 			if( NULL == Tmp )
 			{
 				fclose( Source );
@@ -1296,4 +1342,128 @@ bool buildDict( const StringBuffer* Key, const StringBuffer* Value )
 #endif
 	
 	return Error;
+}
+
+void printAndFlush(
+	StringBuffer* Buffer,
+	bool UpperCase
+)
+{
+
+}
+
+bool pushToBuffer( StringBuffer* Buffer, char InputChar )
+{
+	size_t Size, Index;
+	char* Tmp;
+
+	Size = Buffer->length+2;//new char + \0
+	Tmp = (char*) calloc( sizeof(char), Size );
+	if( NULL == Tmp )
+	{
+		return false;
+	}
+	
+	for( Index = 0; Size-1 > Index; Index++ )
+	{
+		Tmp[ Index ] = Buffer->string[ Index ];
+	}
+	
+	Tmp[ Buffer->length ] = '\0';
+	free( Buffer->string );
+	Buffer->string = Tmp;
+	Buffer->string[ Buffer->length ] = InputChar;
+	Buffer->length++;
+	Buffer->string[ Buffer->length ] = '\0';
+	return true;
+}
+
+bool evilFromStdin()
+{
+	StringBuffer Input;
+	char CurrentChar;
+	bool DoneFirstChar;
+	bool UpperCase;
+
+	Input.string = (char*) calloc( sizeof(char), 1 );
+	if( NULL == Input.string )
+	{
+		destroyPNode( Dictionary, true );
+		errorAndOut( "Memory fail...." );
+	}
+	
+	Input.string[ 0 ] = '\0';
+	Input.length = 0;
+
+	DoneFirstChar = false;
+	UpperCase = false;
+	CurrentChar = nextChar( stdin );
+	
+	while( EOF != CurrentChar )
+	{
+		if( ferror( stdin ) )
+		{
+			// free( Input.string );
+			destroyPNode( Dictionary, true );
+			errorAndOut( "I/O error when reading from stdin." );
+		}
+
+		/* Der eingegebene Text (stdin) sei genau dann gültig, wenn er ausschließlich die Zeichen 10
+		 * (line feed) sowie 32–126(inklusive) enthält.
+		 */
+		if( 10 != CurrentChar || ( 32 > CurrentChar && 126 < CurrentChar ) )
+		{
+			free( Input.string );
+			destroyPNode( Dictionary, true );
+			errorAndOut( "Illeagl input from stdin in detected." );
+		}
+
+		/* Der erste Buchstabe eines übersetzten
+		 * Wortes sei genau dann ein Großbuchstabe, wenn der erste Buchstabe im Ursprungstext groß
+		 * ist; alle übrigen Buchstaben des übersetzten Wortes sind immer klein.
+		 */
+		if( 'A' <= CurrentChar && 'Z' >= CurrentChar )
+		{
+			if( true == DoneFirstChar )
+			{
+				UpperCase = true;
+			}
+			CurrentChar += TO_LOWER;
+			UpperCase = true;
+		}
+		
+		if( 'a' > CurrentChar || 'z' < CurrentChar )
+		{
+			printAndFlush( Input, UpperCase );
+			if( true == DoneFirstChar )
+			{
+
+			}
+
+		}
+		
+		Size = Input.length+2;
+		Tmp = (char*) calloc( sizeof(char), Size );
+		if( NULL == Tmp )
+		{
+			free( Input.string );
+			destroyPNode( Dictionary, true );
+			errorAndOut( "No memory on deck...." );
+		}
+
+		for( Index = 0; Size-1 > Index; Index++ )
+		{
+			Tmp[ Index ] = Input.string[ Index ];
+		}
+
+		Tmp[ Input.length ] = '\0';
+		free( Input.string );
+
+		Input.string = Tmp;	
+		Input.length++;
+		
+		CurrentChar = nextChar( stdin );
+	}
+
+	return true;
 }
