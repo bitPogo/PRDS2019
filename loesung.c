@@ -48,6 +48,7 @@ char* substring( char* Source, size_t From, size_t Length, bool* ErrorFlag );
 bool startsWith( const char* Str1, const char* Str2 );
 bool endsWith( const char* Str1, const char* Str2 );
 char* makeEmptyString( bool* ErrorFlag );
+char* makeStrCopy( const char* ToCopy, bool* ErrorFlag );
 /*===============================PatricaTrie Defs==============================*/
 typedef struct PNode {
 	struct PNode* parent;
@@ -158,24 +159,6 @@ size_t longestPrefix( const PNode* Self, const char* Key )
 	}
 	
 	return To;
-}
-
-char* makeStrCopy( const char* ToCopy, bool* ErrorFlag )
-{
-	size_t Len;
-	char* Dolly;
-
-	Len = strlen( ToCopy );
-	Len++;//nullbit
-	Dolly = (char* ) calloc( sizeof( char ), Len );
-	if( NULL == Dolly )
-	{
-		*ErrorFlag = true;
-		return NULL;
-	}
-
-	strcpy( Dolly, ToCopy );
-	return Dolly;
 }
 
 void setValue( PNode* Self, const char* Value, bool* ErrorFlag )
@@ -874,6 +857,26 @@ void printKeys( const PNode* Self, bool* ErrorFlag )
 	}
 }
 /*===================================Utils===================================*/
+ char* makeStrCopy( const char* ToCopy, bool* ErrorFlag )
+{
+	size_t Len;
+	char* Dolly;
+	
+	Len = strlen( ToCopy );
+	Len++;//nullbit
+	
+	Dolly = (char* ) calloc( sizeof( char ), Len );
+	if( NULL == Dolly )
+	{
+		*ErrorFlag = true;
+		return NULL;
+	}
+	
+	strcpy( Dolly, ToCopy );
+	return Dolly;
+}
+
+
 char* makeEmptyString( bool* ErrorFlag ) 
 {
 	char* EmptyString;
@@ -923,16 +926,7 @@ char* substring( char* Source, size_t From, size_t Length, bool* ErrorFlag )
 
     if( 0 == From && SourceLength == Length)
     {
-
-        Return = (char *) malloc( ( SourceLength+1 )*sizeof(char) );
-        if( NULL == Return )
-        {
-        	*ErrorFlag = true;
-			return NULL;
-		}
-
-        strcpy( Return , Source );
-        return Return;
+       return makeStrCopy( Source, ErrorFlag );
     }
 
     Return = (char *) malloc( ( Length + 1 )*sizeof(char) );
@@ -1017,7 +1011,7 @@ void readInputFile( char* Path );
 int nextChar( FILE* Source );
 void parseDict( FILE* Source );
 bool buildDict( const StringBuffer* Key, const StringBuffer* Value );
-bool evilFromStdin();
+void evilFromStdin();
 bool pushToBuffer( StringBuffer* Buffer, char InputChar );
 
 int main( int ArgC, char* Arguments[] ) 
@@ -1093,28 +1087,28 @@ int nextChar( FILE* Source )
 
 void parseDict( FILE* Source )
 {
-	size_t Index, Size;
 	bool Mode, Pos;
 	bool Error;
 	int CurrentChar;
 	int LookAHead;
 	StringBuffer Key;
 	StringBuffer Value;
-	char* Tmp;
 	
 	Mode = 0;
 	Pos = 0;
 
-	Key.string = (char*) calloc( sizeof(char), 1 );
-	if( NULL == Key.string )
+	Error = false;
+
+	Key.string = makeEmptyString( &Error );
+	if( true == Error )
 	{
 		fclose( Source );
 		destroyPNode( Dictionary, true );
 		errorAndOut( "Something went wrong with the memory, jim." );
 	}
 
-	Value.string = (char*) calloc( sizeof(char), 1 );
-	if( NULL == Value.string )
+	Value.string = makeEmptyString( &Error );
+	if( true == Error )
 	{
 		fclose( Source );
 		free( Key.string );
@@ -1122,8 +1116,6 @@ void parseDict( FILE* Source )
 		errorAndOut( "I cannot get enough mem...." );
 	}
 
-	Key.string[ 0 ] = '\0';
-	Value.string[ 0 ] = '\0';
 	Key.length = 0;
 	Value.length = 0;
 
@@ -1213,16 +1205,16 @@ void parseDict( FILE* Source )
 			Pos = 0;
 			Mode = 0;
 
-			Key.string = (char*) calloc( sizeof(char), 1 );
-			if( NULL == Key.string )
+			Key.string = makeEmptyString( &Error );
+			if( true == Error )
 			{
 				fclose( Source );
 				destroyPNode( Dictionary, true );
 				errorAndOut( "There is something wrong with, the memory, Sir!" );
 			}
 			
-			Value.string = (char*) calloc( sizeof(char), 1 );
-			if( NULL == Value.string )
+			Value.string = makeEmptyString( &Error );
+			if( true == Error )
 			{
 				fclose( Source );
 				free( Key.string );
@@ -1230,8 +1222,6 @@ void parseDict( FILE* Source )
 				errorAndOut( "There is no space left." );
 			}
 			
-			Key.string[ 0 ] = '\0';
-			Value.string[ 0 ] = '\0';
 			Key.length = 0;
 			Value.length = 0;
 			continue;
@@ -1256,34 +1246,18 @@ void parseDict( FILE* Source )
 		 */
 		if( 0 == Mode )
 		{
-			Size = Key.length + 2;
-			Tmp = (char*) calloc( sizeof( char ), Size ); // Null byte + new Char
-			if( NULL == Tmp )
+			if( false == pushToBuffer( &Key, CurrentChar ) )
 			{
-				fclose( Source );
-				free( Key.string );
-				free( Value.string );
-				destroyPNode( Dictionary, true );
-				errorAndOut( "Memory breach...." );
-			}
-			
-			for( Index = 0; Size-1 > Index; Index++ )
-			{
-				Tmp[ Index ] = Key.string[ Index ];
-			}
-
-			free( Key.string );
-
-			Key.string = Tmp;
-			Key.string[ Key.length ] = (char) CurrentChar;
-			Key.length++;
-			Key.string[ Key.length ] = '\0';
+				 fclose( Source );
+				 free( Key.string );
+				 free( Value.string );
+				 destroyPNode( Dictionary, true );
+				 errorAndOut( "Memory breach...." );
+			}	
 		}
 		else
 		{
-			Size =  Value.length + 2;
-			Tmp = (char*) calloc( sizeof( char ), Size );
-			if( NULL == Tmp )
+			if( false == pushToBuffer( &Value, CurrentChar ) )
 			{
 				fclose( Source );
 				free( Key.string );
@@ -1291,18 +1265,6 @@ void parseDict( FILE* Source )
 				destroyPNode( Dictionary, true );
 				errorAndOut( "Just annother memory error message." );
 			}
-
-			for( Index = 0; Size-1 > Index; Index++ )
-			{
-				Tmp[ Index ] = Value.string[ Index ];
-			}
-
-			free( Value.string );
-
-			Value.string = Tmp;
-			Value.string[ Value.length ] = (char) CurrentChar;
-			Value.length++;
-			Value.string[ Value.length ] = '\0';
 		}
 	}
 
@@ -1344,14 +1306,6 @@ bool buildDict( const StringBuffer* Key, const StringBuffer* Value )
 	return Error;
 }
 
-void printAndFlush(
-	StringBuffer* Buffer,
-	bool UpperCase
-)
-{
-
-}
-
 bool pushToBuffer( StringBuffer* Buffer, char InputChar )
 {
 	size_t Size, Index;
@@ -1378,21 +1332,23 @@ bool pushToBuffer( StringBuffer* Buffer, char InputChar )
 	return true;
 }
 
-bool evilFromStdin()
+void evilFromStdin()
 {
 	StringBuffer Input;
+	char* Translation;
 	char CurrentChar;
 	bool DoneFirstChar;
 	bool UpperCase;
+	bool Error;
 
-	Input.string = (char*) calloc( sizeof(char), 1 );
-	if( NULL == Input.string )
+	Error = false;
+	
+	Input.string = makeEmptyString( &Error );
+	if( false == Error )
 	{
 		destroyPNode( Dictionary, true );
 		errorAndOut( "Memory fail...." );
 	}
-	
-	Input.string[ 0 ] = '\0';
 	Input.length = 0;
 
 	DoneFirstChar = false;
@@ -1424,46 +1380,83 @@ bool evilFromStdin()
 		 */
 		if( 'A' <= CurrentChar && 'Z' >= CurrentChar )
 		{
-			if( true == DoneFirstChar )
+			if( false == DoneFirstChar )
 			{
 				UpperCase = true;
+				if( false == pushToBuffer( &Input, CurrentChar + TO_LOWER ) )
+				{
+					free( Input.string );
+					destroyPNode( Dictionary, true );
+					errorAndOut( "Ohhhhh memory fail......" );
+				}
+
+				CurrentChar = nextChar( stdin );
+				continue;				
 			}
-			CurrentChar += TO_LOWER;
-			UpperCase = true;
 		}
 		
-		if( 'a' > CurrentChar || 'z' < CurrentChar )
+		if( ( 'a' > CurrentChar || 'z' < CurrentChar ) && ( 'A' > CurrentChar || 'Z' < CurrentChar ) )
 		{
-			printAndFlush( Input, UpperCase );
 			if( true == DoneFirstChar )
 			{
+				Translation = findValueByKey( 
+					Dictionary,
+					Input.string,
+					&Error,
+					false,
+					true
+				);
 
+				if( true == Error )
+				{
+					free( Input.string );
+					destroyPNode( Dictionary, true );
+					errorAndOut( "Why you do this...there is nothing left..." );
+				}
+
+				if( NULL == Translation )
+				{
+					if( true == UpperCase )
+					{
+						Input.string[ 0 ] -= TO_LOWER;
+					}
+
+					printf( "<%s>", Input.string );
+				}
+				else
+				{
+					if( true == UpperCase )
+					{
+						Translation[ 0 ] -= TO_LOWER;
+					}
+
+					printf( "%s", Translation );
+					free( Translation );
+				}
+
+				free( Input.string );
+				Input.string = makeEmptyString( &Error );
+				if( true == Error )
+				{
+					destroyPNode( Dictionary, true );
+					errorAndOut( "Nope, there is no memory left...I am sorry" );
+				}
 			}
 
+			printf( "%c", CurrentChar );
+			UpperCase = false;
+			DoneFirstChar = false;
+			continue;
 		}
 		
-		Size = Input.length+2;
-		Tmp = (char*) calloc( sizeof(char), Size );
-		if( NULL == Tmp )
-		{
+		if( false == pushToBuffer( &Input, CurrentChar ) )
+		{   
 			free( Input.string );
 			destroyPNode( Dictionary, true );
-			errorAndOut( "No memory on deck...." );
+			errorAndOut( "Ohhhhh my the last possible memory fail message - you did it!" );
 		}
 
-		for( Index = 0; Size-1 > Index; Index++ )
-		{
-			Tmp[ Index ] = Input.string[ Index ];
-		}
-
-		Tmp[ Input.length ] = '\0';
-		free( Input.string );
-
-		Input.string = Tmp;	
-		Input.length++;
-		
+		DoneFirstChar = true;
 		CurrentChar = nextChar( stdin );
 	}
-
-	return true;
 }
