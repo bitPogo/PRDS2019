@@ -93,7 +93,7 @@ PNode* makeNewPNode( bool* ErrorFlag )
 // TODO Stack req
 void destroyPNode( PNode* Node, bool Recursive )
 {
-	unsigned long Index;
+	size_t Index;
 
 	if( true == Recursive && 0 < Node->sizeOfChildren )
 	{
@@ -214,7 +214,7 @@ char* getKey( const PNode* Self, bool* ErrorFlag )
 {
 	char* Tmp;
 	char* Return;
-	unsigned long PayloadSize;
+	size_t PayloadSize;
 	
 	if( NULL == Self->parent )
 	{
