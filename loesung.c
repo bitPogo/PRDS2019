@@ -51,7 +51,7 @@ char* makeEmptyString( bool* ErrorFlag );
 typedef struct PNode {
 	struct PNode* parent;
 	struct PNode** children;
-	size_t sizeOfChildren;
+	unsigned short sizeOfChildren;
 	char* value;
 	char* key;
 	bool root;//Debug perpuse
@@ -93,7 +93,7 @@ PNode* makeNewPNode( bool* ErrorFlag )
 // TODO Stack req
 void destroyPNode( PNode* Node, bool Recursive )
 {
-	size_t Index;
+	unsigned short Index;
 
 	if( true == Recursive && 0 < Node->sizeOfChildren )
 	{
@@ -275,9 +275,9 @@ const PNode* _commonPrefix( const PNode* Node, const char* NodeKey, const char* 
 	}
 }
 
-long __searchForChild( const PNode* Self, char Key )
+short __searchForChild( const PNode* Self, char Key )
 {
-	size_t Start, End, Middle;
+	short Start, End, Middle;
 
 	if( 0 == Self->sizeOfChildren || _getKey( Self->children[ 0 ] )[0] > Key )
 	{
@@ -319,7 +319,7 @@ long __searchForChild( const PNode* Self, char Key )
 
 const PNode* _findByKey( const PNode* Self, const char* Key, bool MatchExact )
 {
-	long Index;
+	short Index;
 	const char* MyKey;
 	char* StrStart;
 	const PNode* CurrentNode;
@@ -428,9 +428,9 @@ const PNode* findEndPointByKey(
 	return NULL;
 }
 
-long _insertPosition( const PNode* Self, char Key )
+short _insertPosition( const PNode* Self, char Key )
 {
-	size_t Start, End, Middle;
+	short Start, End, Middle;
 
 	if( 0 == Self->sizeOfChildren || _getKey( Self->children[ 0 ] )[0] > Key )
 	{
@@ -470,16 +470,16 @@ long _insertPosition( const PNode* Self, char Key )
 	return -( Start + 1 );	
 }
 
-void __setChildParent( PNode* Parent, PNode* Child, size_t Index )
+void __setChildParent( PNode* Parent, PNode* Child, unsigned short Index )
 {
 	Child->parent = Parent; 
 	Parent->children[ Index ] = Child;
 }
 
-PNode* __appendChild( PNode* Where, PNode* NewChild, size_t Index, bool* ErrorFlag )
+PNode* __appendChild( PNode* Where, PNode* NewChild, unsigned short Index, bool* ErrorFlag )
 {
 	PNode** NewChildren;
-	size_t Index2, Index3;
+	unsigned short Index2, Index3;
 	size_t NewSize;
 
 	if( 0 == Where->sizeOfChildren )
@@ -529,7 +529,7 @@ PNode* _insertChild(
 	PNode* Where,
 	const char* Key,
 	const char* Value,
-	size_t Index,	
+	unsigned short Index,	
 	bool* ErrorFlag
 )
 {
@@ -576,7 +576,7 @@ PNode* _appendChild(
 	bool* ErrorFlag 
 )
 {
-	long Index;
+	short Index;
 
 	Index = _insertPosition( Self, Child->key[ 0 ] );
 
@@ -613,7 +613,7 @@ PNode* _insert(
 )
 {
 	size_t PrefixLength, KeyLength, InsertKeyLength;
-	long Index;
+	short Index;
 	PNode* NewParent;
 	PNode* Return;
 	PNode* Tmp;
@@ -805,7 +805,7 @@ const PNode* insert(
 	bool* ErrorFlag
 )
 {
-	long Index;
+	short Index;
 	Index = _insertPosition( Self, Key[ 0 ] );
 	if( -1 < Index )
 	{
@@ -971,7 +971,7 @@ bool endsWith( const char* Str1, const char* Str2 )
  * 0 Wenn die Eingaben formal gültig sind und jedes Wort im Text übersetzt werden kann.
  * 1 Wenn die Eingaben formal gültig sind, im Text aber Wörter auftreten, die nicht übersetzt werden können.
 */
-int Return;
+short Return;
 PNode* Dictionary;
 
 size_t min( size_t A, size_t B )
