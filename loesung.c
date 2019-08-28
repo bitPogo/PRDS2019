@@ -15,11 +15,13 @@
 *
 * =====================================================================================
 */
+#include <locale.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stddef.h>
 #include <stdbool.h>
+#include <wchar.h>
 
 #ifndef LF
 #define LF 10
@@ -28,6 +30,9 @@
 #define CR 13
 #endif
 #define TO_LOWER 32
+#ifndef EXIT_ERR
+#define EXIT_ERR 23
+#endif
 
 /*=====================================Types===================================*/
 /* This is supposed to live in a seperate file */
@@ -235,35 +240,6 @@ char* getKey( const PNode* Self, bool* ErrorFlag )
 	}
 }
 
-const PNode* _commonPrefix( const PNode* Node, const char* NodeKey, const char* Key , bool MatchExact )
-{
-	char* NewStart;
-	if( true == MatchExact )
-	{
-		if( 0 == strcmp( NodeKey, Key ) )
-		{
-			return Node;
-		}
-	}
-	else
-	{
-		if( true == startsWith( NodeKey, Key ) )
-		{
-			return Node;
-		}
-	}
-	
-	if( true == startsWith( Key, NodeKey ) )
-	{
-		NewStart = (char *)Key + ( strlen( NodeKey ) * sizeof( char ) );
-		return _findByKey( Node, NewStart, MatchExact );
-	}
-	else
-	{
-		return NULL;
-	}
-}
-
 short __searchForChild( const PNode* Self, char Key )
 {
 	short Start, End, Middle;
@@ -306,6 +282,35 @@ short __searchForChild( const PNode* Self, char Key )
 	return -1;
 }
 
+const PNode* _commonPrefix( const PNode* Node, const char* NodeKey, const char* Key , bool MatchExact )
+{   
+	char* NewStart;
+	if( true == MatchExact )
+	{
+		if( 0 == strcmp( NodeKey, Key ) )
+		{
+			return Node;
+		}
+	}
+	else
+	{
+		if( true == startsWith( NodeKey, Key ) )
+		{   
+			return Node;
+		}
+	}
+
+	if( true == startsWith( Key, NodeKey ) )
+	{   
+		NewStart = (char *)Key + ( strlen( NodeKey ) * sizeof( char ) );
+		return _findByKey( Node, NewStart, MatchExact );
+	}
+	else
+	{   
+		return NULL;
+	}
+}
+
 const PNode* _findByKey( const PNode* Self, const char* Key, bool MatchExact )
 {
 	short Index;
@@ -323,35 +328,12 @@ const PNode* _findByKey( const PNode* Self, const char* Key, bool MatchExact )
 	}
 	
 	MyKey = _getKey( CurrentNode->children[ Index ] );	
-	if( true == MatchExact )
-	{
-		if( 0 == strcmp( MyKey, StrStart ) )
-		{
-			return CurrentNode;
-		}
-	}
-	else
-	{
-		if( true == startsWith( MyKey, StrStart ) )	
-		{
-			return CurrentNode;
-		}
-	}
-	
-	if( true == startsWith( StrStart, MyKey ) )
-	{
-		StrStart = (char *)StrStart + ( strlen( MyKey ) * sizeof( char ) );
-		return _commonPrefix(
-				CurrentNode->children[ Index ],
-				_getKey( CurrentNode->children[ Index ] ),
-				StrStart,
-				MatchExact
-		);
-	}
-	else
-	{
-		return NULL;
-	}
+	return _commonPrefix(
+			CurrentNode->children[ Index ],
+			MyKey,
+			StrStart,
+			MatchExact
+	);
 }
 
 const PNode* findByKey( 
@@ -898,7 +880,8 @@ char* makeEmptyString( bool* ErrorFlag )
 void errorAndOut( const char* Message )
 {
     fprintf( stderr, "%s\n", Message);
-    exit( 23 );
+	fflush( stderr );
+    exit( EXIT_ERR );
 }
 /**
  * Returns a substring of given String
@@ -1008,9 +991,9 @@ size_t min( size_t A, size_t B )
 
 /*----------------------------------DICT--------------------------------------*/
 void readInputFile( char* Path );
-int nextChar( FILE* Source );
+wint_t nextChar( FILE* Source );
 void parseDict( FILE* Source );
-bool buildDict( const StringBuffer* Key, const StringBuffer* Value );
+bool buildDict( const StringBuffer* Key, const StringBuffer* Value, bool* MemError );
 void evilFromStdin();
 bool pushToBuffer( StringBuffer* Buffer, char InputChar );
 
@@ -1019,6 +1002,7 @@ int main( int ArgC, char* Arguments[] )
 	bool Error;
 	Return = 0;
 
+	setlocale( LC_ALL, "" );
 	if ( 1 == ArgC ) 
 	{
 		errorAndOut( "Too few arguments provided." );
@@ -1059,7 +1043,12 @@ int main( int ArgC, char* Arguments[] )
 	evilFromStdin();
 
 	destroyPNode( Dictionary, true );
-	return 0;
+
+	if( 0 != Return )
+	{
+		exit( EXIT_FAILURE );
+	}
+	return EXIT_SUCCESS;
 }
 
 /*----------------------------------DICT--------------------------------------*/
@@ -1080,24 +1069,28 @@ void readInputFile( char* Path )
 	fclose( FilePointer );
 }
 
-int nextChar( FILE* Source )
+wint_t nextChar( FILE* Source )
 {
-	return fgetc( Source );
+	return fgetwc( Source );
 }
 
 void parseDict( FILE* Source )
 {
-	bool Mode, Pos;
-	bool Error;
-	int CurrentChar;
-	int LookAHead;
+	bool Mode, DoneFirstChar;
+	bool Error, MemError;
+	wint_t CurrentChar;
+	wint_t LookAHead;
 	StringBuffer Key;
 	StringBuffer Value;
+	unsigned long Line;
+	char ErrorMsg[ 150 ];
 	
 	Mode = 0;
-	Pos = 0;
+	DoneFirstChar = 0;
+	Line = 1;
 
 	Error = false;
+	MemError = false;
 
 	Key.string = makeEmptyString( &Error );
 	if( true == Error )
@@ -1121,7 +1114,7 @@ void parseDict( FILE* Source )
 
 	LookAHead = nextChar( Source );
 
-	while( EOF != LookAHead )
+	while( WEOF != LookAHead )
 	{
 		CurrentChar = LookAHead;
 		LookAHead = nextChar( Source );
@@ -1160,16 +1153,28 @@ void parseDict( FILE* Source )
 			||
 				CR == LookAHead
 			||
-				EOF == LookAHead
+				WEOF == LookAHead
 			||
-				0 == Pos
+				0 == DoneFirstChar
 			)
 			{
 				free( Key.string );
 				free( Value.string );
 				fclose( Source );
 				destroyPNode( Dictionary, true );
-				errorAndOut( "The given dictionary is incorrectly formed." );
+				snprintf( 
+						ErrorMsg, 
+						150, 
+						"The given dictionary is incorrectly formed( Line %lu ).\n\t-Mode: %i\n\t-LR: %i\n\t-CR: %i\n\t-EOF: %i\n\t-DoneFirstChar: %i\n\t-given char: '%c'", 
+						Line,
+						Mode, 
+						LF == LookAHead, 
+						CR == LookAHead, 
+						WEOF == LookAHead,
+						DoneFirstChar,
+						(char )CurrentChar
+				);
+				errorAndOut( ErrorMsg );
 			}
 
 			Mode = 1;
@@ -1187,23 +1192,38 @@ void parseDict( FILE* Source )
 				free( Key.string );
 				free( Value.string );
 				destroyPNode( Dictionary, true );
-				errorAndOut( "The given dictionary is incorrectly formed." );
+				snprintf(
+						ErrorMsg,
+						120,
+						"The given dictionary is incorrectly formed - unexpected EOL on Line %lu.",
+						Line
+				);
+				errorAndOut( ErrorMsg );
 			}
 
-			Trace = Key.string;
-			Error = buildDict( &Key, &Value );
+			Error = buildDict( &Key, &Value, &MemError );
 			
 			free( Key.string );
 			free( Value.string );
 
-			if( true == Error )
+			if( true == MemError )
 			{
+				fclose( Source );
 				destroyPNode( Dictionary, true );
-				errorAndOut( "Something exploded downside in the memory lane..." );
+				errorAndOut( "You really trie hard to throw fireworks...memory failed..." );
 			}
 
-			Pos = 0;
+			if( true == Error )
+			{
+				fclose( Source );
+				destroyPNode( Dictionary, true );
+				snprintf( ErrorMsg, 120, "Repeated entry detected on Line %lu.", Line );
+				errorAndOut( ErrorMsg );
+			}
+
+			DoneFirstChar = 0;
 			Mode = 0;
+			Line++;
 
 			Key.string = makeEmptyString( &Error );
 			if( true == Error )
@@ -1236,17 +1256,24 @@ void parseDict( FILE* Source )
 			free( Key.string );
 			free( Value.string );
 			destroyPNode( Dictionary, true );
-			errorAndOut( "The given dictionary is incorrectly formed." );
+			snprintf(
+					ErrorMsg,
+					120,
+					"The given dictionary is incorrectly formed - illegal token with value %u on Line %lu.",
+					CurrentChar,
+					Line
+			);
+			errorAndOut( ErrorMsg );
 		}
 
-		Pos = 1;
+		DoneFirstChar = 1;
 
 		/*
 		 * a bit slow, could be improved by using buffers + I do not like realloc
 		 */
 		if( 0 == Mode )
 		{
-			if( false == pushToBuffer( &Key, CurrentChar ) )
+			if( false == pushToBuffer( &Key, (char )CurrentChar ) )
 			{
 				 fclose( Source );
 				 free( Key.string );
@@ -1257,7 +1284,7 @@ void parseDict( FILE* Source )
 		}
 		else
 		{
-			if( false == pushToBuffer( &Value, CurrentChar ) )
+			if( false == pushToBuffer( &Value, (char )CurrentChar ) )
 			{
 				fclose( Source );
 				free( Key.string );
@@ -1273,7 +1300,7 @@ void parseDict( FILE* Source )
 	free( Value.string );
 
 	/* Rule: Ein anderes Zeichen als ein Kleinbuchstabe, Doppelpunkt oder Linefeed tritt auf. */
-	if( 0 != Pos )
+	if( 0 != DoneFirstChar )
 	{
 		fclose( Source );
 		destroyPNode( Dictionary, true );
@@ -1281,29 +1308,15 @@ void parseDict( FILE* Source )
 	}
 }
 
-bool buildDict( const StringBuffer* Key, const StringBuffer* Value )
+bool buildDict( const StringBuffer* Key, const StringBuffer* Value, bool* MemError )
 {
-	bool Error = false;
-	if( NULL == insert( 
+	return NULL == insert( 
 		Dictionary,
 		Key->string,
 		Value->string,
 		false,
-		&Error
-	) )
-	{
-		return false;
-	}
-
-#ifdef DEBUGPR
-	#ifdef VERBOSE
-	bool Interal;
-	Interal = false;
-	printKeys( Dictionary, &Interal );
-	#endif
-#endif
-	
-	return Error;
+		MemError
+	);
 }
 
 bool pushToBuffer( StringBuffer* Buffer, char InputChar )
@@ -1336,7 +1349,7 @@ void evilFromStdin()
 {
 	StringBuffer Input;
 	char* Translation;
-	char CurrentChar;
+	wint_t CurrentChar;
 	bool DoneFirstChar;
 	bool UpperCase;
 	bool Error;
@@ -1344,7 +1357,7 @@ void evilFromStdin()
 	Error = false;
 	
 	Input.string = makeEmptyString( &Error );
-	if( false == Error )
+	if( true == Error )
 	{
 		destroyPNode( Dictionary, true );
 		errorAndOut( "Memory fail...." );
@@ -1355,11 +1368,11 @@ void evilFromStdin()
 	UpperCase = false;
 	CurrentChar = nextChar( stdin );
 	
-	while( EOF != CurrentChar )
+	while( WEOF != CurrentChar )
 	{
 		if( ferror( stdin ) )
 		{
-			// free( Input.string );
+			free( Input.string );
 			destroyPNode( Dictionary, true );
 			errorAndOut( "I/O error when reading from stdin." );
 		}
@@ -1367,7 +1380,7 @@ void evilFromStdin()
 		/* Der eingegebene Text (stdin) sei genau dann gültig, wenn er ausschließlich die Zeichen 10
 		 * (line feed) sowie 32–126(inklusive) enthält.
 		 */
-		if( 10 != CurrentChar || ( 32 > CurrentChar && 126 < CurrentChar ) )
+		if( 10 != CurrentChar && ( 32 > CurrentChar || 126 < CurrentChar ) )
 		{
 			free( Input.string );
 			destroyPNode( Dictionary, true );
@@ -1383,7 +1396,7 @@ void evilFromStdin()
 			if( false == DoneFirstChar )
 			{
 				UpperCase = true;
-				if( false == pushToBuffer( &Input, CurrentChar + TO_LOWER ) )
+				if( false == pushToBuffer( &Input, (char )( CurrentChar + TO_LOWER ) ) )
 				{
 					free( Input.string );
 					destroyPNode( Dictionary, true );
@@ -1422,6 +1435,7 @@ void evilFromStdin()
 					}
 
 					printf( "<%s>", Input.string );
+					Return = 1;
 				}
 				else
 				{
@@ -1436,6 +1450,7 @@ void evilFromStdin()
 
 				free( Input.string );
 				Input.string = makeEmptyString( &Error );
+				Input.length = 0;
 				if( true == Error )
 				{
 					destroyPNode( Dictionary, true );
@@ -1443,13 +1458,14 @@ void evilFromStdin()
 				}
 			}
 
-			printf( "%c", CurrentChar );
+			printf( "%c", (char )CurrentChar );
 			UpperCase = false;
 			DoneFirstChar = false;
+			CurrentChar = nextChar( stdin );
 			continue;
 		}
 		
-		if( false == pushToBuffer( &Input, CurrentChar ) )
+		if( false == pushToBuffer( &Input, (char )CurrentChar ) )
 		{   
 			free( Input.string );
 			destroyPNode( Dictionary, true );
@@ -1459,4 +1475,6 @@ void evilFromStdin()
 		DoneFirstChar = true;
 		CurrentChar = nextChar( stdin );
 	}
+
+	free( Input.string );
 }
