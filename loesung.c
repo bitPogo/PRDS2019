@@ -5,7 +5,7 @@
 * 
 * Description:  Abgabe zum Programmier Praktikum SoSe2019
 * 
-* Version:  1.0
+* Version:  1.b
 * Created:  23.08.2019 06:20:22
 * Revision:  none
 * Compiler:  gcc
@@ -54,6 +54,7 @@ bool startsWith( const char* Str1, const char* Str2 );
 bool endsWith( const char* Str1, const char* Str2 );
 char* makeEmptyString( bool* ErrorFlag );
 char* makeStrCopy( const char* ToCopy, bool* ErrorFlag );
+char* cat( char* Str1, char* Str2, bool* ErrorFlag );
 /*===============================PatricaTrie Defs==============================*/
 typedef struct PNode {
 	struct PNode* parent;
@@ -66,7 +67,8 @@ typedef struct PNode {
 
 char* getKey( const PNode* Self, bool* ErrorFlag );
 size_t longestPrefix( const PNode* Self, const char* Key );
-const PNode* _findByKey( const PNode* Self, const char* Key, bool MatchExact );
+/* const PNode* _findByKey( const PNode* Self, const char* Key, bool MatchExact ); */
+const PNode* _findByKey( const PNode* Self, const char* MyKey, const char* Key, bool MatchExact );
 void printKeys( const PNode* Self, bool* ErrorFlag );
 
 PNode* makeNewPNode( bool* ErrorFlag )
@@ -97,7 +99,7 @@ PNode* makeNewPNode( bool* ErrorFlag )
 	return NewNode;
 }
 
-// TODO Stack req
+/*
 void destroyPNode( PNode* Node, bool Recursive )
 {
 	unsigned short Index;
@@ -123,6 +125,56 @@ void destroyPNode( PNode* Node, bool Recursive )
 	}
 
 	free( Node );
+}*/
+
+void _freeNode( PNode* Node )
+{
+	if( 0 < Node->sizeOfChildren )
+	{   
+		free( Node->children );
+	}
+	
+	free( Node->key );
+	if( NULL != Node->value )
+	{   
+		free( Node->value );
+	}
+	
+	free( Node );
+}
+
+void _iterativeRevemovel( PNode* Parent )
+{
+	register unsigned short Index;
+	PNode* CurrentNode;
+
+	CurrentNode = Parent;
+	do
+	{
+		for( Index = CurrentNode->sizeOfChildren-1; 0 <= Index; Index-- )
+		{
+			if( 0 < CurrentNode->children[ Index ]->sizeOfChildren )
+			{
+				CurrentNode = CurrentNode->children[ Index ];
+				break;
+			}
+			else
+			{
+				_freeNode( CurrentNode->children[ Index ] );
+				CurrentNode->sizeOfChildren--;
+			}
+		}
+	}
+	while( 0 < Parent->sizeOfChildren );
+}
+
+void destroyPNode( PNode* Node, bool Purge )
+{
+	if( true == Purge && 0 < Node->sizeOfChildren )
+	{
+		_iterativeRevemovel( Node );
+	}
+	_freeNode( Node );
 }
 
 /*------------------------------------Basement-------------------------------*/
@@ -133,19 +185,45 @@ char* _getKey( const PNode* Self )
 
 char* _getPrefix( const PNode* Self, bool* ErrorFlag )
 {
-	if( NULL == Self->parent )
+	char* Return;
+	char* Tmp;
+	PNode* Parent;
+
+	if( true == Self->parent->root )
 	{
 		return makeEmptyString( ErrorFlag );
 	}
 	else
 	{
-		return (char *) getKey( Self->parent, ErrorFlag );
+		Parent = Self->parent;
+		Return = makeEmptyString( ErrorFlag );
+		if( NULL == Return )
+		{
+			return NULL;
+		}
+
+		while( false == Parent->root )
+		{
+			Tmp = cat( Parent->key, Return, ErrorFlag );
+			free( Return );
+
+			if( NULL == Tmp )
+			{
+				return NULL;
+			}
+			
+			Return = Tmp;
+			Parent = Parent->parent;
+		}
+
+		return Return;
 	}
 }
 
 size_t longestPrefix( const PNode* Self, const char* Key )
 {
-	size_t To, Index;
+	register size_t To;
+	register size_t Index;
 	char* MyKey;
 
 	MyKey = _getKey( Self );
@@ -206,9 +284,8 @@ void setKey( PNode* Self, const char* Key, bool PreventCopy, bool* ErrorFlag )
 /*----------------------------------Reading----------------------------------*/
 char* getKey( const PNode* Self, bool* ErrorFlag )
 {
-	char* Tmp;
+	char* Prefix;
 	char* Return;
-	size_t PayloadSize;
 	
 	if( NULL == Self->parent )
 	{
@@ -216,26 +293,20 @@ char* getKey( const PNode* Self, bool* ErrorFlag )
 	}
 	else
 	{
-		Tmp = _getPrefix( Self, ErrorFlag );
-		if( NULL == Tmp )
+		Prefix = _getPrefix( Self, ErrorFlag );
+		if( NULL == Prefix )
 		{
 			return NULL;
 		}
 
-		PayloadSize = strlen( Tmp ) + strlen( Self->key );
-		
-		Return = (char *) malloc( ( PayloadSize+1 )*sizeof(char) );
+		Return = cat( Prefix, _getKey( Self ), ErrorFlag );
+
+		free( Prefix );
 		if( NULL == Return )
-		{
-			*ErrorFlag = true;
+		{	
 			return NULL;
 		}
 
-		strcpy( Return, Tmp );
-		strcat( Return, Self->key );
-		Return[ PayloadSize ] = '\0';
-	
-		free( Tmp );
 		return Return;
 	}
 }
@@ -282,6 +353,7 @@ short __searchForChild( const PNode* Self, char Key )
 	return -1;
 }
 
+/*
 const PNode* _commonPrefix( const PNode* Node, const char* NodeKey, const char* Key , bool MatchExact )
 {   
 	char* NewStart;
@@ -334,6 +406,49 @@ const PNode* _findByKey( const PNode* Self, const char* Key, bool MatchExact )
 			StrStart,
 			MatchExact
 	);
+}*/
+
+const PNode* _findByKey( const PNode* Self, const char* MyKey, const char* Key, bool MatchExact )
+{
+	short Index;
+	char* StrStart;
+	const PNode* CurrentNode;
+	
+	CurrentNode = Self;
+	StrStart = (char* )Key;
+	do 
+	{
+		if( true == MatchExact )
+		{
+			if( 0 == strcmp( MyKey, StrStart ) )
+			{
+				return CurrentNode;
+			}
+		}
+		else
+		{
+			if( true == startsWith( MyKey, StrStart ) )
+			{
+				return CurrentNode;
+			}
+		}
+
+		if( true == startsWith( StrStart, MyKey )  && false == CurrentNode->root )
+		{
+			StrStart = (char *)StrStart + ( strlen( MyKey ) * sizeof( char ) );
+			continue;
+		}
+	
+		Index = __searchForChild( CurrentNode, StrStart[ 0 ] );
+		if( -1 == Index )
+		{
+			return NULL;
+		}
+
+		CurrentNode = CurrentNode->children[ Index ];
+		MyKey = _getKey( CurrentNode );
+	}
+	while( true );
 }
 
 const PNode* findByKey( 
@@ -362,12 +477,19 @@ const PNode* findByKey(
 		MyKey = _getKey( Self );
 	}
 	
-	Return = _commonPrefix(
+	/*Return = _commonPrefix(
+		Self,
+		MyKey,
+		Key,
+		MatchExact
+	);*/
+	Return = _findByKey(
 		Self,
 		MyKey,
 		Key,
 		MatchExact
 	);
+
 
 	if( true == MakeFree )
 	{
@@ -428,7 +550,9 @@ char* findValueByKey(
 
 short _insertPosition( const PNode* Self, char Key )
 {
-	short Start, End, Middle;
+	register short Start;
+	register short End;
+	register short Middle;
 
 	if( 0 == Self->sizeOfChildren || _getKey( Self->children[ 0 ] )[0] > Key )
 	{
@@ -474,10 +598,11 @@ void __setChildParent( PNode* Parent, PNode* Child, unsigned short Index )
 	Parent->children[ Index ] = Child;
 }
 
-PNode* __appendChild( PNode* Where, PNode* NewChild, unsigned short Index, bool* ErrorFlag )
+PNode* __appendChild( PNode* Where, PNode* NewChild, register unsigned short Index, bool* ErrorFlag )
 {
 	PNode** NewChildren;
-	unsigned short Index2, Index3;
+	register unsigned short Index2;
+	register unsigned short Index3;
 	size_t NewSize;
 
 	if( 0 == Where->sizeOfChildren )
@@ -527,7 +652,7 @@ PNode* _insertChild(
 	PNode* Where,
 	const char* Key,
 	const char* Value,
-	unsigned short Index,	
+	register unsigned short Index,	
 	bool* ErrorFlag
 )
 {
@@ -601,7 +726,7 @@ PNode* _appendChild(
 		);
 	}
 }
-
+/*
 PNode* _insert( 
 	PNode* Self, 
 	const char* OrgKey,
@@ -793,6 +918,203 @@ PNode* _insert(
 
 		return Return;
 	}
+}*/
+
+PNode* _insert(
+	PNode* Self,
+	const char* OrgKey,
+	const char* Value,
+	bool Force,
+	bool* ErrorFlag
+)
+{
+	size_t PrefixLength, KeyLength, InsertKeyLength;
+	short Index;
+	PNode* NewParent;
+	PNode* Return;
+	PNode* Tmp;
+	PNode* CurrentNode;
+	char* Key;
+	char* NewKey;
+	char* CommonKey;
+	
+	Key = (char*) OrgKey;
+	CurrentNode = (PNode *) Self;
+	
+	while( true )
+	{
+		PrefixLength = longestPrefix( CurrentNode, Key );
+		KeyLength = strlen( _getKey( CurrentNode ) );
+		InsertKeyLength = strlen( Key );
+		
+		if( 0 == PrefixLength )
+		{
+			if( 0 == CurrentNode->sizeOfChildren )
+			{
+				return _insertChild( CurrentNode, Key, Value, 0, ErrorFlag );
+			}
+			
+			Index = _insertPosition( CurrentNode, Key[ 0 ] );
+			
+			if( -1 < Index )
+			{
+				CurrentNode = CurrentNode->children[ Index ];
+				continue;
+			}
+			else
+			{
+				Index = -( Index + 1 );
+				return _insertChild( CurrentNode, Key, Value, Index, ErrorFlag );
+			}
+        }
+        else if( PrefixLength == InsertKeyLength && PrefixLength == KeyLength )
+        {
+			if( NULL == CurrentNode->value )
+			{
+				setValue( CurrentNode, Value, ErrorFlag );
+				if( true == *ErrorFlag )
+				{
+					return NULL;
+				}
+				
+				return CurrentNode;
+			}
+			
+			if( true == Force )
+			{
+				free( CurrentNode->value );
+				CurrentNode->value = NULL;
+				setValue( CurrentNode, Value, ErrorFlag );
+				if( true == *ErrorFlag )
+				{
+					return NULL;
+				}
+				
+				return CurrentNode;
+			}
+			
+			return NULL;
+        }
+		else if( PrefixLength == KeyLength )
+		{
+			Key = Key+( PrefixLength * sizeof( char ) );
+			
+			if( 0 == CurrentNode->sizeOfChildren )
+			{
+				return _insertChild( CurrentNode, Key, Value, 0, ErrorFlag );
+			}
+			
+			Index = _insertPosition( CurrentNode, Key[ 0 ] );
+			if( 0 <= Index )
+			{
+				CurrentNode = CurrentNode->children[ Index ];
+				continue;
+			}
+			else
+			{
+				Index = -( Index + 1 );
+				return _insertChild( CurrentNode, Key, Value, Index, ErrorFlag );
+			}
+		}
+		else if( PrefixLength == InsertKeyLength )
+        {
+			Index = __searchForChild( CurrentNode->parent, _getKey( CurrentNode )[ 0 ] );
+			NewKey = substring( _getKey( CurrentNode ), PrefixLength, strlen( _getKey( CurrentNode ) ), ErrorFlag );
+			
+			if( NULL == NewKey )
+			{
+				return NULL;
+			}
+			
+			NewParent = makeNewPNode( ErrorFlag );
+			if( true == *ErrorFlag )
+			{
+				free( NewKey );
+				return NULL;
+			}
+			
+			setKey( ( PNode* )NewParent, Key, false, ErrorFlag );
+			if( true == *ErrorFlag )
+			{
+				free( NewKey );
+				destroyPNode( NewParent, false );
+				return NULL;
+			}
+			
+			setValue( (PNode* )NewParent, Value, ErrorFlag );
+			if( true == *ErrorFlag )
+			{
+				free( NewKey );
+				destroyPNode( NewParent, false );
+				return NULL;
+			}
+			
+			setKey( NewParent, Key, false, ErrorFlag );
+			if( true == *ErrorFlag )
+			{
+				free( NewKey );
+				destroyPNode( NewParent, false );
+				return NULL;
+			}
+			
+			setKey( CurrentNode, NewKey, true, ErrorFlag );
+			Tmp = CurrentNode->parent;
+			
+			Return = _appendChild(
+					NewParent,
+					CurrentNode,
+					false,
+					ErrorFlag
+			);
+			
+			if( NULL == Return )
+			{
+				destroyPNode( NewParent, false );
+				return NULL;
+			}
+			
+			__setChildParent( Tmp, NewParent, Index  );
+			NewParent->parent = Tmp;
+			return NewParent;
+        }
+		else
+		{
+			CommonKey = (char *) _getKey( CurrentNode );
+			CommonKey = substring( CommonKey, 0, PrefixLength, ErrorFlag );
+			if( NULL == CommonKey )
+			{
+				return NULL;
+			}
+			
+			NewKey = substring( Key, PrefixLength, strlen( Key ), ErrorFlag );
+			if( NULL == NewKey )
+			{
+				free( CommonKey );
+				return NULL;
+			}
+			
+			NewParent = (PNode* )_insert(
+					CurrentNode,
+					CommonKey,
+					NULL,
+					false,
+					ErrorFlag
+			);
+			free( CommonKey );
+			
+			if( NULL == NewParent )
+			{
+				free( NewKey );
+				return NULL;
+			}
+			
+			Index = _insertPosition( NewParent, NewKey[ 0 ] );
+			Index = -( Index + 1 );
+			Return = _insertChild( NewParent, NewKey, Value, Index, ErrorFlag );
+			free( NewKey );
+			return Return;
+		}
+	}
 }
 
 const PNode* insert(
@@ -893,8 +1215,9 @@ void errorAndOut( const char* Message )
 char* substring( char* Source, size_t From, size_t Length, bool* ErrorFlag )
 {
     char* Return;
-    size_t Index1, Index2;
-	size_t SourceLength;
+    register size_t Index1;
+	register size_t Index2;
+	register size_t SourceLength;
 
     if( NULL == Source )
     {
@@ -950,7 +1273,10 @@ bool startsWith( const char* Str1, const char* Str2 )
 
 bool endsWith( const char* Str1, const char* Str2 )
 {
-	size_t Len1, Len2, Offset, Index;
+	register size_t Len1;
+	register size_t Len2;
+	register size_t Offset;
+	register size_t Index;
 	Len1 = strlen( Str1 );
 	Len2 = strlen( Str2 );
 	
@@ -975,6 +1301,31 @@ bool endsWith( const char* Str1, const char* Str2 )
 
 	return true;
 }
+
+char* cat( char* Str1, char* Str2, bool* ErrorFlag )
+{
+	size_t PayloadSize;
+	char* Return;
+
+	PayloadSize = strlen( Str1 ) + strlen( Str2 );
+	
+	Return = (char *) malloc( ( PayloadSize+1 )*sizeof(char) );
+	if( NULL == Return )
+	{
+		*ErrorFlag = true;
+		return NULL;
+	}
+	
+	strcpy( Return, Str1 );
+	strcat( Return, Str2 );
+	Return[ PayloadSize ] = '\0';
+	return Return;
+}
+
+size_t min( size_t A, size_t B )
+{
+	return A > B ? A : B;
+}
 /*===================================Flow=====================================*/
 /*=====================================Globals=================================*/
 /* make sure we devide between:
@@ -983,12 +1334,6 @@ bool endsWith( const char* Str1, const char* Str2 )
 */
 short Return;
 PNode* Dictionary;
-
-size_t min( size_t A, size_t B )
-{
-	return A > B ? A : B;
-}
-
 /*----------------------------------DICT--------------------------------------*/
 void readInputFile( char* Path );
 wint_t nextChar( FILE* Source );
@@ -1078,8 +1423,8 @@ void parseDict( FILE* Source )
 {
 	bool Mode, DoneFirstChar;
 	bool Error, MemError;
-	wint_t CurrentChar;
-	wint_t LookAHead;
+	register wint_t CurrentChar;
+	register wint_t LookAHead;
 	StringBuffer Key;
 	StringBuffer Value;
 	unsigned long Line;
@@ -1321,7 +1666,8 @@ bool buildDict( const StringBuffer* Key, const StringBuffer* Value, bool* MemErr
 
 bool pushToBuffer( StringBuffer* Buffer, char InputChar )
 {
-	size_t Size, Index;
+	register size_t Size;
+	register size_t Index;
 	char* Tmp;
 
 	Size = Buffer->length+2;//new char + \0
@@ -1349,7 +1695,7 @@ void evilFromStdin()
 {
 	StringBuffer Input;
 	char* Translation;
-	wint_t CurrentChar;
+	register wint_t CurrentChar;
 	bool DoneFirstChar;
 	bool UpperCase;
 	bool Error;
