@@ -1179,7 +1179,7 @@ char* makeEmptyString( bool* ErrorFlag )
 void errorAndOut( const char* Message )
 {
 	fclose( stdin );
-    fprintf( stderr, "\n%s\n", Message);
+	fprintf( stderr, "\n%s\n", Message);
 	fflush( stderr );
     exit( EXIT_ERR );
 }
@@ -1764,9 +1764,11 @@ void evilFromStdin()
 				CurrentChar = nextChar( stdin );
 				continue;				
 			}
+
+			CurrentChar += TO_LOWER;
 		}
 		
-		if( ( 'a' > CurrentChar || 'z' < CurrentChar ) && ( 'A' > CurrentChar || 'Z' < CurrentChar ) )
+		if( ( 'a' > CurrentChar || 'z' < CurrentChar ) )// && ( 'A' > CurrentChar || 'Z' < CurrentChar ) )
 		{
 			if( true == DoneFirstChar )
 			{
