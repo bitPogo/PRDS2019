@@ -1181,7 +1181,7 @@ void errorAndOut( const char* Message )
 	fclose( stdin );
 	fprintf( stderr, "\n%s\n", Message);
 	fflush( stderr );
-    exit( EXIT_ERR );
+	exit( EXIT_ERR );
 }
 /**
  * Returns a substring of given String
