@@ -108,11 +108,7 @@ void destroyPNode( PNode* Node, bool Recursive )
 		}
 	}
 
-	if( 0 < Node->sizeOfChildren )
-	{
-		free( Node->children );
-	}
-
+	free( Node->children );
 	free( Node->key );
 
 	if( NULL != Node->value )
@@ -125,12 +121,9 @@ void destroyPNode( PNode* Node, bool Recursive )
 
 void _freeNode( PNode* Node )
 {
-	if( 0 < Node->sizeOfChildren )
-	{   
-		free( Node->children );
-	}
-	
+	free( Node->children );
 	free( Node->key );
+	
 	if( NULL != Node->value )
 	{   
 		free( Node->value );
@@ -139,29 +132,25 @@ void _freeNode( PNode* Node )
 	free( Node );
 }
 
-void _iterativeRevemovel( PNode* Parent )
+void _iterativeRevemovel( PNode* Root )
 {
-	register unsigned short Index;
 	PNode* CurrentNode;
+	PNode* Parent;
 
-	CurrentNode = Parent;
-	do
+	while( 0 < Root->sizeOfChildren )
 	{
-		for( Index = CurrentNode->sizeOfChildren-1; 0 <= Index; Index-- )
+		Parent = Root;
+		CurrentNode = Root->children[ Root->sizeOfChildren-1 ];
+		
+		while( 0 < CurrentNode->sizeOfChildren )
 		{
-			if( 0 < CurrentNode->children[ Index ]->sizeOfChildren )
-			{
-				CurrentNode = CurrentNode->children[ Index ];
-				break;
-			}
-			else
-			{
-				_freeNode( CurrentNode->children[ Index ] );
-				CurrentNode->sizeOfChildren--;
-			}
+			Parent = CurrentNode;
+			CurrentNode = Parent->children[ Parent->sizeOfChildren-1 ];
 		}
+		
+		Parent->sizeOfChildren--;
+		_freeNode( CurrentNode );
 	}
-	while( 0 < Parent->sizeOfChildren );
 }
 
 void destroyPNode( PNode* Node, bool Purge )
@@ -172,7 +161,6 @@ void destroyPNode( PNode* Node, bool Purge )
 	}
 	_freeNode( Node );
 }
-
 /*------------------------------------Basement-------------------------------*/
 char* _getKey( const PNode* Self )
 {
