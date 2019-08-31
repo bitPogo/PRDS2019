@@ -22,6 +22,7 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include <wchar.h>
+#include <signal.h>
 
 #ifndef LF
 #define LF 10
@@ -1177,7 +1178,8 @@ char* makeEmptyString( bool* ErrorFlag )
  */
 void errorAndOut( const char* Message )
 {
-    fprintf( stderr, "%s\n", Message);
+	fclose( stdin );
+    fprintf( stderr, "\n%s\n", Message);
 	fflush( stderr );
     exit( EXIT_ERR );
 }
@@ -1308,6 +1310,7 @@ size_t min( size_t A, size_t B )
  * 0 Wenn die Eingaben formal gültig sind und jedes Wort im Text übersetzt werden kann.
  * 1 Wenn die Eingaben formal gültig sind, im Text aber Wörter auftreten, die nicht übersetzt werden können.
 */
+bool EarlyExit;
 short Return;
 PNode* Dictionary;
 /*----------------------------------DICT--------------------------------------*/
@@ -1317,6 +1320,20 @@ void parseDict( FILE* Source );
 bool buildDict( const StringBuffer* Key, const StringBuffer* Value, bool* MemError );
 void evilFromStdin();
 bool pushToBuffer( StringBuffer* Buffer, char InputChar );
+
+void makeEarlyExit( int Signal )
+{
+	if( true == EarlyExit )
+	{
+		exit( Signal );
+	}
+
+	if( SIGSEGV != Signal )
+	{
+		EarlyExit = true;
+		return;
+	}
+}
 
 int main( int ArgC, char* Arguments[] ) 
 {
@@ -1335,6 +1352,10 @@ int main( int ArgC, char* Arguments[] )
 	}
 
 	Error = false;
+	signal( SIGINT, makeEarlyExit );
+	signal( SIGILL, makeEarlyExit );
+	signal( SIGABRT, makeEarlyExit );
+	signal( SIGTERM, makeEarlyExit );
 	
 	Dictionary = makeNewPNode( &Error );
 	Dictionary->root = true;
@@ -1542,6 +1563,14 @@ void parseDict( FILE* Source )
 				errorAndOut( ErrorMsg );
 			}
 
+			if( true == EarlyExit )
+			{
+				fclose( Source );
+				destroyPNode( Dictionary, true );
+				errorAndOut( "Interrupted - closing savely." );
+			}
+
+
 			DoneFirstChar = 0;
 			Mode = 0;
 			Line++;
@@ -1697,6 +1726,13 @@ void evilFromStdin()
 			free( Input.string );
 			destroyPNode( Dictionary, true );
 			errorAndOut( "I/O error when reading from stdin." );
+		}
+
+		if( true == EarlyExit )
+		{
+			free( Input.string );
+			destroyPNode( Dictionary, true );
+			errorAndOut( "Interrupted - closing savely." );
 		}
 
 		/* Der eingegebene Text (stdin) sei genau dann gültig, wenn er ausschließlich die Zeichen 10

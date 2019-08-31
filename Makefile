@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=--std=c99 -Wall -Werror -Wpedantic -D DEBUGPR -g
+CFLAGS=--std=c99 -Wall -Werror -Wpedantic -g
 OBJ=loesung.c
 NAME=loesung
 
