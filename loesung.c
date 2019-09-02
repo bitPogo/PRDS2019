@@ -46,12 +46,12 @@ typedef struct StringBuffer
 
 unsigned long min( unsigned long A, unsigned long B );
 void errorAndOut( const char* Message );
-char* substring( char* Source, size_t From, size_t Length, bool* ErrorFlag );
+char* substring( char* Source, size_t From, size_t Length, bool* Error );
 bool startsWith( const char* Str1, const char* Str2 );
 bool endsWith( const char* Str1, const char* Str2 );
-char* makeEmptyString( bool* ErrorFlag );
-char* makeStrCopy( const char* ToCopy, bool* ErrorFlag );
-char* cat( char* Str1, char* Str2, bool* ErrorFlag );
+char* makeEmptyString( bool* Error );
+char* makeStrCopy( const char* ToCopy, bool* Error );
+char* cat( char* Str1, char* Str2, bool* Error );
 /*===============================PatricaTrie Defs==============================*/
 typedef struct PNode {
 	struct PNode* parent;
@@ -62,20 +62,20 @@ typedef struct PNode {
 	bool root;
 } PNode;
 
-char* getKey( const PNode* Self, bool* ErrorFlag );
+char* getKey( const PNode* Self, bool* Error );
 size_t longestPrefix( const PNode* Self, const char* Key );
 /* const PNode* _findByKey( const PNode* Self, const char* Key, bool MatchExact ); */
 const PNode* _findByKey( const PNode* Self, const char* MyKey, const char* Key, bool MatchExact );
-void printKeys( const PNode* Self, bool* ErrorFlag );
+void printKeys( const PNode* Self, bool* Error );
 
-PNode* makeNewPNode( bool* ErrorFlag )
+PNode* makeNewPNode( bool* Error )
 {
 	PNode* NewNode;
 	
 	NewNode = (PNode* ) malloc( sizeof(PNode)*1 );
 	if( NULL == NewNode )
 	{
-		*ErrorFlag = true;
+		*Error = true;
 		return NULL;
 	}
 
@@ -83,7 +83,7 @@ PNode* makeNewPNode( bool* ErrorFlag )
 	NewNode->children = NULL;
 	NewNode->sizeOfChildren = 0;
 	
-	NewNode->key = makeEmptyString( ErrorFlag );
+	NewNode->key = makeEmptyString( Error );
 	if( NULL == NewNode->key )
 	{
 		free( NewNode );
@@ -168,7 +168,7 @@ char* _getKey( const PNode* Self )
 	return Self->key;
 }
 
-char* _getPrefix( const PNode* Self, bool* ErrorFlag )
+char* _getPrefix( const PNode* Self, bool* Error )
 {
 	char* Return;
 	char* Tmp;
@@ -176,12 +176,12 @@ char* _getPrefix( const PNode* Self, bool* ErrorFlag )
 
 	if( true == Self->parent->root )
 	{
-		return makeEmptyString( ErrorFlag );
+		return makeEmptyString( Error );
 	}
 	else
 	{
 		Parent = Self->parent;
-		Return = makeEmptyString( ErrorFlag );
+		Return = makeEmptyString( Error );
 		if( NULL == Return )
 		{
 			return NULL;
@@ -189,7 +189,7 @@ char* _getPrefix( const PNode* Self, bool* ErrorFlag )
 
 		while( false == Parent->root )
 		{
-			Tmp = cat( Parent->key, Return, ErrorFlag );
+			Tmp = cat( Parent->key, Return, Error );
 			free( Return );
 
 			if( NULL == Tmp )
@@ -229,7 +229,7 @@ size_t longestPrefix( const PNode* Self, const char* Key )
 	return To;
 }
 
-void setValue( PNode* Self, const char* Value, bool* ErrorFlag )
+void setValue( PNode* Self, const char* Value, bool* Error )
 {
 	if( NULL != Value )
 	{
@@ -237,16 +237,16 @@ void setValue( PNode* Self, const char* Value, bool* ErrorFlag )
 		{
 			free( Self->value );
 		}
-		Self->value = makeStrCopy( Value, ErrorFlag );
+		Self->value = makeStrCopy( Value, Error );
 	}
 }
 
-char* getValue( const PNode* Self, bool* ErrorFlag )
+char* getValue( const PNode* Self, bool* Error )
 {
-	return makeStrCopy( Self->value, ErrorFlag );
+	return makeStrCopy( Self->value, Error );
 }
 
-void setKey( PNode* Self, const char* Key, bool PreventCopy, bool* ErrorFlag )
+void setKey( PNode* Self, const char* Key, bool PreventCopy, bool* Error )
 {
 	free( Self->key );
 	if( true == PreventCopy )
@@ -255,28 +255,28 @@ void setKey( PNode* Self, const char* Key, bool PreventCopy, bool* ErrorFlag )
 	}
 	else
 	{
-		Self->key = makeStrCopy( Key, ErrorFlag );
+		Self->key = makeStrCopy( Key, Error );
 	}
 }
 /*----------------------------------Reading----------------------------------*/
-char* getKey( const PNode* Self, bool* ErrorFlag )
+char* getKey( const PNode* Self, bool* Error )
 {
 	char* Prefix;
 	char* Return;
 	
 	if( NULL == Self->parent )
 	{
-		return makeEmptyString( ErrorFlag );
+		return makeEmptyString( Error );
 	}
 	else
 	{
-		Prefix = _getPrefix( Self, ErrorFlag );
+		Prefix = _getPrefix( Self, Error );
 		if( NULL == Prefix )
 		{
 			return NULL;
 		}
 
-		Return = cat( Prefix, _getKey( Self ), ErrorFlag );
+		Return = cat( Prefix, _getKey( Self ), Error );
 
 		free( Prefix );
 		if( NULL == Return )
@@ -431,7 +431,7 @@ const PNode* _findByKey( const PNode* Self, const char* MyKey, const char* Key, 
 const PNode* findByKey( 
 	const PNode* Self, 
 	const char* Key,
-	bool* ErrorFlag,
+	bool* Error,
 	bool IsPrefixed,
 	bool MatchExact
 )
@@ -443,8 +443,8 @@ const PNode* findByKey(
 	if( true == IsPrefixed )
 	{
 		MakeFree = true;
-		MyKey = getKey( Self, ErrorFlag );
-		if( true == *ErrorFlag )
+		MyKey = getKey( Self, Error );
+		if( true == *Error )
 		{
 			return NULL;
 		}
@@ -479,14 +479,14 @@ const PNode* findByKey(
 const PNode* findEndPointByKey(
 	const PNode* Self,
 	const char* Key,
-	bool* ErrorFlag,
+	bool* Error,
 	bool IsPrefixed,
 	bool MatchExact
 ) 
 {
 	const PNode* Node;
 
-	Node = findByKey( Self, Key, ErrorFlag, IsPrefixed, MatchExact );
+	Node = findByKey( Self, Key, Error, IsPrefixed, MatchExact );
 	if( NULL != Node )
 	{
 		if( NULL != Node->value )
@@ -501,7 +501,7 @@ const PNode* findEndPointByKey(
 char* findValueByKey(
 	const PNode* Self,
 	const char* Key,
-	bool* ErrorFlag,
+	bool* Error,
 	bool IsPrefixed,
 	bool MatchExact
 ) {
@@ -510,14 +510,14 @@ char* findValueByKey(
 	Tmp = findEndPointByKey(
 		Self,
 		Key,
-		ErrorFlag,
+		Error,
 		IsPrefixed,
 		MatchExact
 	);
 
 	if( NULL != Tmp )
 	{
-		return getValue( Tmp, ErrorFlag );
+		return getValue( Tmp, Error );
 	}
 	else
 	{
@@ -575,11 +575,11 @@ void __setChildParent( PNode* Parent, PNode* Child, unsigned short Index )
 	Parent->children[ Index ] = Child;
 }
 
-PNode* __appendChild( PNode* Where, PNode* NewChild, register unsigned short Index, bool* ErrorFlag )
+PNode* __appendChild( PNode* Where, PNode* NewChild, register unsigned short PlaceToBe, bool* Error )
 {
 	PNode** NewChildren;
+	register unsigned short Index;
 	register unsigned short Index2;
-	register unsigned short Index3;
 	size_t NewSize;
 
 	if( 0 == Where->sizeOfChildren )
@@ -587,7 +587,7 @@ PNode* __appendChild( PNode* Where, PNode* NewChild, register unsigned short Ind
 		NewChildren = (PNode** ) calloc( sizeof( PNode* ), 1 );
 		if( NULL == NewChildren )
 		{
-			*ErrorFlag = true;
+			*Error = true;
 			return NULL;
 		}
 	}
@@ -595,24 +595,21 @@ PNode* __appendChild( PNode* Where, PNode* NewChild, register unsigned short Ind
 	{   
 		NewSize = Where->sizeOfChildren+1;
 		NewChildren = (PNode** ) calloc( sizeof( PNode* ), NewSize );// this might a bit slow, but better for the memory
-	
 		if( NULL == NewChildren )
 		{
-			*ErrorFlag = true;
+			*Error = true;
 			return NULL;
 		}
+
+		memcpy( NewChildren, Where->children, Where->sizeOfChildren*sizeof( PNode* ) );
 	
 		/* Splicing */
-		for( Index2 = 0; Index > Index2; Index2++ )
-		{
-			NewChildren[ Index2 ] = Where->children[ Index2 ];
-		}
 
-		NewChildren[ Index ] = NewChild;
+		NewChildren[ PlaceToBe ] = NewChild;
 		
-		for( Index2 = Index+1, Index3 = Index; NewSize > Index2; Index3++, Index2++ )
+		for( Index = PlaceToBe+1, Index2 = PlaceToBe; NewSize > Index; Index++, Index2++ )
 		{
-			NewChildren[ Index2 ] = Where->children[ Index3 ];
+			NewChildren[ Index ] = Where->children[ Index2 ];
 		}
 	}
 
@@ -620,7 +617,7 @@ PNode* __appendChild( PNode* Where, PNode* NewChild, register unsigned short Ind
 	
 	Where->sizeOfChildren++;
 	Where->children = NewChildren;
-	__setChildParent( ( PNode* ) Where, ( PNode* )NewChild, Index );
+	__setChildParent( ( PNode* ) Where, ( PNode* )NewChild, PlaceToBe );
 	
 	return NewChild;
 }
@@ -630,36 +627,36 @@ PNode* _insertChild(
 	const char* Key,
 	const char* Value,
 	register unsigned short Index,	
-	bool* ErrorFlag
+	bool* Error
 )
 {
 	PNode* NewChild;
 	PNode* Return;
 	
-	NewChild = makeNewPNode( ErrorFlag );
+	NewChild = makeNewPNode( Error );
 	if( NULL == NewChild )
 	{
-		*ErrorFlag = true;
+		*Error = true;
 		return NULL;
 	}
 
-	setKey( NewChild, Key, false, ErrorFlag );
-	if( true == *ErrorFlag )
+	setKey( NewChild, Key, false, Error );
+	if( true == *Error )
 	{
-		*ErrorFlag = true;
+		*Error = true;
 		destroyPNode( NewChild, false );
 		return NULL;
 	}
 
-	setValue( NewChild, Value, ErrorFlag );
-	if( true == *ErrorFlag )
+	setValue( NewChild, Value, Error );
+	if( true == *Error )
 	{
-		*ErrorFlag = true;
+		*Error = true;
 		destroyPNode( NewChild, false );
 		return NULL;
 	}
 
-	Return = __appendChild( Where, NewChild, Index, ErrorFlag );
+	Return = __appendChild( Where, NewChild, Index, Error );
 	if( NULL == Return )
 	{
 		destroyPNode( NewChild, false );
@@ -673,7 +670,7 @@ PNode* _appendChild(
 	PNode* Self, 
 	PNode* Child, 
 	bool Force, 
-	bool* ErrorFlag 
+	bool* Error 
 )
 {
 	short Index;
@@ -699,7 +696,7 @@ PNode* _appendChild(
 			Self,
 			Child,
 			Index,
-			ErrorFlag
+			Error
 		);
 	}
 }
@@ -709,7 +706,7 @@ PNode* _insert(
 	const char* OrgKey,
 	const char* Value,
 	bool Force,
-	bool* ErrorFlag 
+	bool* Error 
 )
 {
 	size_t PrefixLength, KeyLength, InsertKeyLength;
@@ -731,27 +728,27 @@ PNode* _insert(
 	{
         if( 0 == Self->sizeOfChildren )
 		{
-			return _insertChild( Self, Key, Value, 0, ErrorFlag );
+			return _insertChild( Self, Key, Value, 0, Error );
 		}
 
 		Index = _insertPosition( Self, Key[ 0 ] );
 		
 		if( -1 < Index )
 		{
-			return _insert( Self->children[ Index ], Key, Value, Force, ErrorFlag );
+			return _insert( Self->children[ Index ], Key, Value, Force, Error );
 		}
 		else
 		{
 			Index = -( Index + 1 ); 
-			return _insertChild( (PNode* )Self, Key, Value, Index, ErrorFlag );
+			return _insertChild( (PNode* )Self, Key, Value, Index, Error );
 		}
 	}
 	else if( PrefixLength == InsertKeyLength && PrefixLength == KeyLength )
 	{
 		if( NULL == Self->value )
 		{
-			setValue( Self, Value, ErrorFlag );
-			if( true == *ErrorFlag )
+			setValue( Self, Value, Error );
+			if( true == *Error )
 			{
 				return NULL;
 			}
@@ -763,8 +760,8 @@ PNode* _insert(
 		{
 			free( Self->value );
 			Self->value = NULL;
-			setValue( (PNode* )Self, Value, ErrorFlag );
-			if( true == *ErrorFlag )
+			setValue( (PNode* )Self, Value, Error );
+			if( true == *Error )
 			{
 				return NULL;
 			}
@@ -780,62 +777,62 @@ PNode* _insert(
 
 		if( 0 == Self->sizeOfChildren )
 		{
-			return _insertChild( Self, Key, Value, 0, ErrorFlag );
+			return _insertChild( Self, Key, Value, 0, Error );
 		}
 
 		Index = _insertPosition( Self, Key[ 0 ] );
 		
 		if( 0 <= Index )
 		{
-			return _insert( Self->children[ Index ], Key, Value, Force, ErrorFlag );
+			return _insert( Self->children[ Index ], Key, Value, Force, Error );
 		}
 		else
 		{
 			Index = -( Index + 1 );
-			return _insertChild( (PNode* )Self, Key, Value, Index, ErrorFlag );
+			return _insertChild( (PNode* )Self, Key, Value, Index, Error );
 		}
 	}
 	else if( PrefixLength == InsertKeyLength )
 	{
 		Index = __searchForChild( Self->parent, _getKey( Self )[ 0 ] );
-		NewKey = substring( _getKey( Self ), PrefixLength, strlen( _getKey( Self ) ), ErrorFlag );
+		NewKey = substring( _getKey( Self ), PrefixLength, strlen( _getKey( Self ) ), Error );
 		if( NULL == NewKey )
 		{
 			return NULL;
 		}
 
-		NewParent = makeNewPNode( ErrorFlag );
-		if( true == *ErrorFlag )
+		NewParent = makeNewPNode( Error );
+		if( true == *Error )
 		{
 			free( NewKey );
 			return NULL;
 		}
 
-		setKey( ( PNode* )NewParent, Key, false, ErrorFlag );
-		if( true == *ErrorFlag )
+		setKey( ( PNode* )NewParent, Key, false, Error );
+		if( true == *Error )
 		{
 			free( NewKey );
 			destroyPNode( NewParent, false );
 			return NULL;
 		}
 
-		setValue( (PNode* )NewParent, Value, ErrorFlag );
-		if( true == *ErrorFlag )
+		setValue( (PNode* )NewParent, Value, Error );
+		if( true == *Error )
 		{
 			free( NewKey );
 			destroyPNode( NewParent, false );
 			return NULL;
 		}
 		
-		setKey( NewParent, Key, false, ErrorFlag );
-		if( true == *ErrorFlag )
+		setKey( NewParent, Key, false, Error );
+		if( true == *Error )
 		{
 			free( NewKey );
 			destroyPNode( NewParent, false );
 			return NULL;
 		}
 
-		setKey( Self, NewKey, true, ErrorFlag );
+		setKey( Self, NewKey, true, Error );
 		
 		Tmp = Self->parent;
 		
@@ -843,7 +840,7 @@ PNode* _insert(
 				NewParent, 
 				Self, 
 				false,
-				ErrorFlag
+				Error
 		);
 		if( NULL == Return )
 		{
@@ -859,13 +856,13 @@ PNode* _insert(
 	else
 	{
 		CommonKey = (char *) _getKey( Self );
-		CommonKey = substring( CommonKey, 0, PrefixLength, ErrorFlag );
+		CommonKey = substring( CommonKey, 0, PrefixLength, Error );
 		if( NULL == CommonKey )
 		{
 			return NULL;
 		}
 	
-		NewKey = substring( Key, PrefixLength, strlen( Key ), ErrorFlag );
+		NewKey = substring( Key, PrefixLength, strlen( Key ), Error );
 		if( NULL == NewKey )
 		{
 			free( CommonKey );
@@ -877,7 +874,7 @@ PNode* _insert(
 				CommonKey,
 				NULL,
 				false,
-				ErrorFlag
+				Error
 		);
 
 		free( CommonKey );
@@ -890,7 +887,7 @@ PNode* _insert(
 
 		Index = _insertPosition( NewParent, NewKey[ 0 ] );
 		Index = -( Index + 1 );
-		Return = _insertChild( NewParent, NewKey, Value, Index, ErrorFlag ); 
+		Return = _insertChild( NewParent, NewKey, Value, Index, Error ); 
 		free( NewKey );
 
 		return Return;
@@ -902,7 +899,7 @@ PNode* _insert(
 	const char* OrgKey,
 	const char* Value,
 	bool Force,
-	bool* ErrorFlag
+	bool* Error
 )
 {
 	size_t PrefixLength, KeyLength, InsertKeyLength;
@@ -928,7 +925,7 @@ PNode* _insert(
 		{
 			if( 0 == CurrentNode->sizeOfChildren )
 			{
-				return _insertChild( CurrentNode, Key, Value, 0, ErrorFlag );
+				return _insertChild( CurrentNode, Key, Value, 0, Error );
 			}
 			
 			Index = _insertPosition( CurrentNode, Key[ 0 ] );
@@ -941,15 +938,15 @@ PNode* _insert(
 			else
 			{
 				Index = -( Index + 1 );
-				return _insertChild( CurrentNode, Key, Value, Index, ErrorFlag );
+				return _insertChild( CurrentNode, Key, Value, Index, Error );
 			}
         }
         else if( PrefixLength == InsertKeyLength && PrefixLength == KeyLength )
         {
 			if( NULL == CurrentNode->value )
 			{
-				setValue( CurrentNode, Value, ErrorFlag );
-				if( true == *ErrorFlag )
+				setValue( CurrentNode, Value, Error );
+				if( true == *Error )
 				{
 					return NULL;
 				}
@@ -961,8 +958,8 @@ PNode* _insert(
 			{
 				free( CurrentNode->value );
 				CurrentNode->value = NULL;
-				setValue( CurrentNode, Value, ErrorFlag );
-				if( true == *ErrorFlag )
+				setValue( CurrentNode, Value, Error );
+				if( true == *Error )
 				{
 					return NULL;
 				}
@@ -978,7 +975,7 @@ PNode* _insert(
 			
 			if( 0 == CurrentNode->sizeOfChildren )
 			{
-				return _insertChild( CurrentNode, Key, Value, 0, ErrorFlag );
+				return _insertChild( CurrentNode, Key, Value, 0, Error );
 			}
 			
 			Index = _insertPosition( CurrentNode, Key[ 0 ] );
@@ -990,58 +987,50 @@ PNode* _insert(
 			else
 			{
 				Index = -( Index + 1 );
-				return _insertChild( CurrentNode, Key, Value, Index, ErrorFlag );
+				return _insertChild( CurrentNode, Key, Value, Index, Error );
 			}
 		}
 		else if( PrefixLength == InsertKeyLength )
         {
 			Index = __searchForChild( CurrentNode->parent, _getKey( CurrentNode )[ 0 ] );
-			NewKey = substring( _getKey( CurrentNode ), PrefixLength, strlen( _getKey( CurrentNode ) ), ErrorFlag );
+			NewKey = substring( _getKey( CurrentNode ), PrefixLength, strlen( _getKey( CurrentNode ) ), Error );
 			
 			if( NULL == NewKey )
 			{
 				return NULL;
 			}
 			
-			NewParent = makeNewPNode( ErrorFlag );
-			if( true == *ErrorFlag )
+			NewParent = makeNewPNode( Error );
+			if( true == *Error )
 			{
 				free( NewKey );
 				return NULL;
 			}
 			
-			setKey( ( PNode* )NewParent, Key, false, ErrorFlag );
-			if( true == *ErrorFlag )
-			{
-				free( NewKey );
-				destroyPNode( NewParent, false );
-				return NULL;
-			}
-			
-			setValue( (PNode* )NewParent, Value, ErrorFlag );
-			if( true == *ErrorFlag )
+			setKey( ( PNode* )NewParent, Key, false, Error );
+			if( true == *Error )
 			{
 				free( NewKey );
 				destroyPNode( NewParent, false );
 				return NULL;
 			}
 			
-			setKey( NewParent, Key, false, ErrorFlag );
-			if( true == *ErrorFlag )
+			setValue( (PNode* )NewParent, Value, Error );
+			if( true == *Error )
 			{
 				free( NewKey );
 				destroyPNode( NewParent, false );
 				return NULL;
 			}
 			
-			setKey( CurrentNode, NewKey, true, ErrorFlag );
+			setKey( CurrentNode, NewKey, true, Error );
 			Tmp = CurrentNode->parent;
 			
 			Return = _appendChild(
 					NewParent,
 					CurrentNode,
 					false,
-					ErrorFlag
+					Error
 			);
 			
 			if( NULL == Return )
@@ -1057,13 +1046,13 @@ PNode* _insert(
 		else
 		{
 			CommonKey = (char *) _getKey( CurrentNode );
-			CommonKey = substring( CommonKey, 0, PrefixLength, ErrorFlag );
+			CommonKey = substring( CommonKey, 0, PrefixLength, Error );
 			if( NULL == CommonKey )
 			{
 				return NULL;
 			}
 			
-			NewKey = substring( Key, PrefixLength, strlen( Key ), ErrorFlag );
+			NewKey = substring( Key, PrefixLength, strlen( Key ), Error );
 			if( NULL == NewKey )
 			{
 				free( CommonKey );
@@ -1075,7 +1064,7 @@ PNode* _insert(
 					CommonKey,
 					NULL,
 					false,
-					ErrorFlag
+					Error
 			);
 			free( CommonKey );
 			
@@ -1087,7 +1076,7 @@ PNode* _insert(
 			
 			Index = _insertPosition( NewParent, NewKey[ 0 ] );
 			Index = -( Index + 1 );
-			Return = _insertChild( NewParent, NewKey, Value, Index, ErrorFlag );
+			Return = _insertChild( NewParent, NewKey, Value, Index, Error );
 			free( NewKey );
 			return Return;
 		}
@@ -1099,31 +1088,31 @@ const PNode* insert(
 	const char* Key,
 	const char* Value,
 	bool Force,
-	bool* ErrorFlag
+	bool* Error
 )
 {
 	short Index;
 	Index = _insertPosition( Self, Key[ 0 ] );
 	if( -1 < Index )
 	{
-		return _insert( Self->children[ Index ], Key, Value, Force, ErrorFlag );
+		return _insert( Self->children[ Index ], Key, Value, Force, Error );
 	}
 	else
 	{
 		Index = -( Index + 1 );
-		return _insertChild( (PNode* )Self, Key, Value, Index, ErrorFlag );
+		return _insertChild( (PNode* )Self, Key, Value, Index, Error );
 	}
 }
 /*----------------------------------Debug------------------------------------*/
-void printKeys( const PNode* Self, bool* ErrorFlag )
+void printKeys( const PNode* Self, bool* Error )
 {
 	unsigned short Index;
 	char* Key;
 	
 	if( NULL != Self->value )
 	{
-		Key = getKey( Self, ErrorFlag );
-		if( true == *ErrorFlag )
+		Key = getKey( Self, Error );
+		if( true == *Error )
 		{
 			return;
 		}
@@ -1134,11 +1123,11 @@ void printKeys( const PNode* Self, bool* ErrorFlag )
 	
 	for( Index = 0; Self->sizeOfChildren>Index; Index++ )
 	{
-		printKeys( Self->children[ Index ], ErrorFlag );
+		printKeys( Self->children[ Index ], Error );
 	}
 }
 /*===================================Utils===================================*/
- char* makeStrCopy( const char* ToCopy, bool* ErrorFlag )
+ char* makeStrCopy( const char* ToCopy, bool* Error )
 {
 	size_t Len;
 	char* Dolly;
@@ -1149,7 +1138,7 @@ void printKeys( const PNode* Self, bool* ErrorFlag )
 	Dolly = (char* ) calloc( sizeof( char ), Len );
 	if( NULL == Dolly )
 	{
-		*ErrorFlag = true;
+		*Error = true;
 		return NULL;
 	}
 	
@@ -1158,14 +1147,14 @@ void printKeys( const PNode* Self, bool* ErrorFlag )
 }
 
 
-char* makeEmptyString( bool* ErrorFlag ) 
+char* makeEmptyString( bool* Error ) 
 {
 	char* EmptyString;
 	
 	EmptyString = (char *) malloc( sizeof(char) );
 	if( NULL == EmptyString )
 	{
-		*ErrorFlag = true;
+		*Error = true;
 		return NULL;
 	}
 	
@@ -1190,7 +1179,7 @@ void errorAndOut( const char* Message )
  * @param Length | int | Length of the subset
  * @return | char* | the computed subset
  */
-char* substring( char* Source, size_t From, size_t Length, bool* ErrorFlag )
+char* substring( char* Source, size_t From, size_t Length, bool* Error )
 {
     char* Return;
     register size_t Index1;
@@ -1210,13 +1199,13 @@ char* substring( char* Source, size_t From, size_t Length, bool* ErrorFlag )
 
     if( 0 == From && SourceLength == Length)
     {
-       return makeStrCopy( Source, ErrorFlag );
+       return makeStrCopy( Source, Error );
     }
 
     Return = (char *) malloc( ( Length + 1 )*sizeof(char) );
     if( NULL == Return )
     {
-    	*ErrorFlag = true;
+    	*Error = true;
 		return NULL;
 	}
 	
@@ -1280,7 +1269,7 @@ bool endsWith( const char* Str1, const char* Str2 )
 	return true;
 }
 
-char* cat( char* Str1, char* Str2, bool* ErrorFlag )
+char* cat( char* Str1, char* Str2, bool* Error )
 {
 	size_t PayloadSize;
 	char* Return;
@@ -1290,7 +1279,7 @@ char* cat( char* Str1, char* Str2, bool* ErrorFlag )
 	Return = (char *) malloc( ( PayloadSize+1 )*sizeof(char) );
 	if( NULL == Return )
 	{
-		*ErrorFlag = true;
+		*Error = true;
 		return NULL;
 	}
 	
@@ -1317,9 +1306,9 @@ PNode* Dictionary;
 void readInputFile( char* Path );
 wint_t nextChar( FILE* Source );
 void parseDict( FILE* Source );
-bool buildDict( const StringBuffer* Key, const StringBuffer* Value, bool* MemError );
+bool buildDict( const char* Key, const char* Value, bool* MemError );
 void evilFromStdin();
-bool pushToBuffer( StringBuffer* Buffer, char InputChar );
+bool pushToBuffer( char** Buffer, char InputChar );
 
 void makeEarlyExit( int Signal )
 {
@@ -1422,8 +1411,8 @@ void parseDict( FILE* Source )
 	bool Error, MemError;
 	register wint_t CurrentChar;
 	register wint_t LookAHead;
-	StringBuffer Key;
-	StringBuffer Value;
+	char* Key;
+	char* Value;
 	unsigned long Line;
 	char ErrorMsg[ 150 ];
 	
@@ -1434,7 +1423,7 @@ void parseDict( FILE* Source )
 	Error = false;
 	MemError = false;
 
-	Key.string = makeEmptyString( &Error );
+	Key = makeEmptyString( &Error );
 	if( true == Error )
 	{
 		fclose( Source );
@@ -1442,17 +1431,14 @@ void parseDict( FILE* Source )
 		errorAndOut( "Something went wrong with the memory, jim." );
 	}
 
-	Value.string = makeEmptyString( &Error );
+	Value = makeEmptyString( &Error );
 	if( true == Error )
 	{
 		fclose( Source );
-		free( Key.string );
+		free( Key );
 		destroyPNode( Dictionary, true );
 		errorAndOut( "I cannot get enough mem...." );
 	}
-
-	Key.length = 0;
-	Value.length = 0;
 
 	LookAHead = nextChar( Source );
 
@@ -1463,8 +1449,8 @@ void parseDict( FILE* Source )
 		if( ferror( Source ) )
 		{
 			fclose( Source );
-			free( Key.string );
-			free( Value.string );
+			free( Key );
+			free( Value );
 			destroyPNode( Dictionary, true );
 			errorAndOut( "I/O error when reading." );
 		}
@@ -1500,8 +1486,8 @@ void parseDict( FILE* Source )
 				0 == DoneFirstChar
 			)
 			{
-				free( Key.string );
-				free( Value.string );
+				free( Key );
+				free( Value );
 				fclose( Source );
 				destroyPNode( Dictionary, true );
 				snprintf( 
@@ -1531,8 +1517,8 @@ void parseDict( FILE* Source )
 			if( 0 == Mode )
 			{
 				fclose( Source );
-				free( Key.string );
-				free( Value.string );
+				free( Key );
+				free( Value );
 				destroyPNode( Dictionary, true );
 				snprintf(
 						ErrorMsg,
@@ -1543,16 +1529,22 @@ void parseDict( FILE* Source )
 				errorAndOut( ErrorMsg );
 			}
 
-			Error = buildDict( &Key, &Value, &MemError );
+			Error = buildDict( Key, Value, &MemError );
 			
-			free( Key.string );
-			free( Value.string );
+			free( Key );
+			free( Value );
 
 			if( true == MemError )
 			{
 				fclose( Source );
 				destroyPNode( Dictionary, true );
-				errorAndOut( "You really trie hard to throw fireworks...memory failed..." );
+				snprintf(
+					ErrorMsg,
+					120,
+					"You really trie hard to throw fireworks...memory r.i.p. on Line %lu.",
+					Line
+				);
+				errorAndOut( ErrorMsg );
 			}
 
 			if( true == Error )
@@ -1575,7 +1567,7 @@ void parseDict( FILE* Source )
 			Mode = 0;
 			Line++;
 
-			Key.string = makeEmptyString( &Error );
+			Key = makeEmptyString( &Error );
 			if( true == Error )
 			{
 				fclose( Source );
@@ -1583,17 +1575,15 @@ void parseDict( FILE* Source )
 				errorAndOut( "There is something wrong with, the memory, Sir!" );
 			}
 			
-			Value.string = makeEmptyString( &Error );
+			Value = makeEmptyString( &Error );
 			if( true == Error )
 			{
 				fclose( Source );
-				free( Key.string );
+				free( Key );
 				destroyPNode( Dictionary, true );
 				errorAndOut( "There is no space left." );
 			}
 			
-			Key.length = 0;
-			Value.length = 0;
 			continue;
 		}
 
@@ -1603,8 +1593,8 @@ void parseDict( FILE* Source )
 		if( 'a' > CurrentChar || 'z' < CurrentChar )
 		{
 			fclose( Source );
-			free( Key.string );
-			free( Value.string );
+			free( Key );
+			free( Value );
 			destroyPNode( Dictionary, true );
 			snprintf(
 					ErrorMsg,
@@ -1626,8 +1616,8 @@ void parseDict( FILE* Source )
 			if( false == pushToBuffer( &Key, (char )CurrentChar ) )
 			{
 				 fclose( Source );
-				 free( Key.string );
-				 free( Value.string );
+				 free( Key );
+				 free( Value );
 				 destroyPNode( Dictionary, true );
 				 errorAndOut( "Memory breach...." );
 			}	
@@ -1637,8 +1627,8 @@ void parseDict( FILE* Source )
 			if( false == pushToBuffer( &Value, (char )CurrentChar ) )
 			{
 				fclose( Source );
-				free( Key.string );
-				free( Value.string );
+				free( Key );
+				free( Value );
 				destroyPNode( Dictionary, true );
 				errorAndOut( "Just annother memory error message." );
 			}
@@ -1646,8 +1636,8 @@ void parseDict( FILE* Source )
 	}
 
 	/* Rule: Ein anderes Zeichen als ein Kleinbuchstabe, Doppelpunkt oder Linefeed tritt auf. */
-	free( Key.string );
-	free( Value.string );
+	free( Key );
+	free( Value );
 
 	/* Rule: Ein anderes Zeichen als ein Kleinbuchstabe, Doppelpunkt oder Linefeed tritt auf. */
 	if( 0 != DoneFirstChar )
@@ -1658,47 +1648,44 @@ void parseDict( FILE* Source )
 	}
 }
 
-bool buildDict( const StringBuffer* Key, const StringBuffer* Value, bool* MemError )
+bool buildDict( const char* Key, const char* Value, bool* MemError )
 {
 	return NULL == insert( 
 		Dictionary,
-		Key->string,
-		Value->string,
+		Key,
+		Value,
 		false,
 		MemError
 	);
 }
 
-bool pushToBuffer( StringBuffer* Buffer, char InputChar )
+bool pushToBuffer( char** Buffer, char InputChar )
 {
-	register size_t Size;
-	register size_t Index;
+	size_t Size, OldSize;
 	char* Tmp;
 
-	Size = Buffer->length+2;//new char + \0
-	Tmp = (char*) calloc( sizeof(char), Size );
+	OldSize = strlen( *Buffer );
+	Size = strlen( *Buffer )+2;//new char + \0
+	Tmp = (char*) calloc( Size, sizeof( char ) );
 	if( NULL == Tmp )
 	{
 		return false;
 	}
-	
-	for( Index = 0; Size-1 > Index; Index++ )
-	{
-		Tmp[ Index ] = Buffer->string[ Index ];
-	}
-	
-	Tmp[ Buffer->length ] = '\0';
-	free( Buffer->string );
-	Buffer->string = Tmp;
-	Buffer->string[ Buffer->length ] = InputChar;
-	Buffer->length++;
-	Buffer->string[ Buffer->length ] = '\0';
+
+	memcpy( Tmp, *Buffer, OldSize );
+	Tmp[ OldSize ] = InputChar;
+	Tmp[ Size-1 ] = '\0';
+	free( *Buffer );
+	*Buffer = Tmp;
 	return true;
 }
 
 void evilFromStdin()
 {
-	StringBuffer Input;
+	/* Note this could be improved, by using partial keys and free them after node switch */
+	char* CaseInSensitive;
+	char* CaseSentive;
+	/* --- */
 	char* Translation;
 	register wint_t CurrentChar;
 	bool DoneFirstChar;
@@ -1707,13 +1694,20 @@ void evilFromStdin()
 
 	Error = false;
 	
-	Input.string = makeEmptyString( &Error );
+	CaseSentive = makeEmptyString( &Error );
 	if( true == Error )
 	{
 		destroyPNode( Dictionary, true );
 		errorAndOut( "Memory fail...." );
 	}
-	Input.length = 0;
+
+	CaseInSensitive = makeEmptyString( &Error );
+	if( true == Error )
+	{
+		destroyPNode( Dictionary, true );
+		errorAndOut( "And we are out - Memory fail...." );
+	}
+
 
 	DoneFirstChar = false;
 	UpperCase = false;
@@ -1723,14 +1717,16 @@ void evilFromStdin()
 	{
 		if( ferror( stdin ) )
 		{
-			free( Input.string );
+			free( CaseInSensitive );
+			free( CaseSentive );
 			destroyPNode( Dictionary, true );
 			errorAndOut( "I/O error when reading from stdin." );
 		}
 
 		if( true == EarlyExit )
 		{
-			free( Input.string );
+			free( CaseInSensitive );
+			free( CaseSentive );
 			destroyPNode( Dictionary, true );
 			errorAndOut( "Interrupted - closing savely." );
 		}
@@ -1740,7 +1736,8 @@ void evilFromStdin()
 		 */
 		if( 10 != CurrentChar && ( 32 > CurrentChar || 126 < CurrentChar ) )
 		{
-			free( Input.string );
+			free( CaseInSensitive );
+			free( CaseSentive );
 			destroyPNode( Dictionary, true );
 			errorAndOut( "Illeagl input from stdin in detected." );
 		}
@@ -1751,21 +1748,26 @@ void evilFromStdin()
 		 */
 		if( 'A' <= CurrentChar && 'Z' >= CurrentChar )
 		{
-			if( false == DoneFirstChar )
+			UpperCase = true;
+			
+			if( false == pushToBuffer( &CaseInSensitive, (char )( CurrentChar + TO_LOWER ) ) )
 			{
-				UpperCase = true;
-				if( false == pushToBuffer( &Input, (char )( CurrentChar + TO_LOWER ) ) )
-				{
-					free( Input.string );
-					destroyPNode( Dictionary, true );
-					errorAndOut( "Ohhhhh memory fail......" );
-				}
-
-				CurrentChar = nextChar( stdin );
-				continue;				
+				free( CaseSentive );
+				free( CaseInSensitive );
+				destroyPNode( Dictionary, true );
+				errorAndOut( "Ohhhhh memory fail......" );
 			}
 
-			CurrentChar += TO_LOWER;
+			if( false == pushToBuffer( &CaseSentive, (char )( CurrentChar ) ) )
+			{
+				free( CaseSentive );
+				free( CaseInSensitive );
+				destroyPNode( Dictionary, true );
+				errorAndOut( "And the memory is out......" );
+			}
+			
+			CurrentChar = nextChar( stdin );
+			continue;
 		}
 		
 		if( ( 'a' > CurrentChar || 'z' < CurrentChar ) )// && ( 'A' > CurrentChar || 'Z' < CurrentChar ) )
@@ -1774,7 +1776,7 @@ void evilFromStdin()
 			{
 				Translation = findValueByKey( 
 					Dictionary,
-					Input.string,
+					CaseInSensitive,
 					&Error,
 					false,
 					true
@@ -1782,19 +1784,15 @@ void evilFromStdin()
 
 				if( true == Error )
 				{
-					free( Input.string );
+					free( CaseSentive );
+					free( CaseInSensitive );
 					destroyPNode( Dictionary, true );
 					errorAndOut( "Why you do this...there is nothing left..." );
 				}
 
 				if( NULL == Translation )
 				{
-					if( true == UpperCase )
-					{
-						Input.string[ 0 ] -= TO_LOWER;
-					}
-
-					printf( "<%s>", Input.string );
+					printf( "<%s>", CaseSentive );
 					Return = 1;
 				}
 				else
@@ -1808,14 +1806,24 @@ void evilFromStdin()
 					free( Translation );
 				}
 
-				free( Input.string );
-				Input.string = makeEmptyString( &Error );
-				Input.length = 0;
+				free( CaseSentive );
+				free( CaseInSensitive );
+				
+				CaseSentive = makeEmptyString( &Error );
 				if( true == Error )
 				{
 					destroyPNode( Dictionary, true );
 					errorAndOut( "Nope, there is no memory left...I am sorry" );
 				}
+
+				CaseInSensitive = makeEmptyString( &Error );
+				if( true == Error )
+				{
+					free( CaseSentive );
+					destroyPNode( Dictionary, true );
+					errorAndOut( "End of the line bro, there is no memory left..." );
+				}
+
 			}
 
 			printf( "%c", (char )CurrentChar );
@@ -1825,16 +1833,27 @@ void evilFromStdin()
 			continue;
 		}
 		
-		if( false == pushToBuffer( &Input, (char )CurrentChar ) )
-		{   
-			free( Input.string );
+		if( false == pushToBuffer( &CaseInSensitive, (char )( CurrentChar ) ) )
+		{
+			free( CaseSentive );
+			free( CaseInSensitive );
 			destroyPNode( Dictionary, true );
-			errorAndOut( "Ohhhhh my the last possible memory fail message - you did it!" );
+			errorAndOut( "Oh my - no no memory......" );
+		}
+		
+		if( false == pushToBuffer( &CaseSentive, (char )( CurrentChar ) ) )
+		{
+			free( CaseSentive );
+			free( CaseInSensitive );
+			destroyPNode( Dictionary, true );
+			errorAndOut( "Wow you hit the last memory fail message possible." );
 		}
 
 		DoneFirstChar = true;
 		CurrentChar = nextChar( stdin );
 	}
 
-	free( Input.string );
+	free( CaseSentive );
+	free( CaseInSensitive );
 }
+
