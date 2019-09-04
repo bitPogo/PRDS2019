@@ -35,20 +35,12 @@
 #define EXIT_ERR 23
 #endif
 
-/*=====================================Types===================================*/
-/* This is supposed to live in a seperate file */
-typedef struct StringBuffer
-{
-	char* string;
-	size_t length;
-} StringBuffer;
 /*=============================Globals( Pseudo Head )==========================*/
-
 unsigned long min( unsigned long A, unsigned long B );
 void errorAndOut( const char* Message );
 char* substring( char* Source, size_t From, size_t Length, bool* Error );
 bool startsWith( const char* Str1, const char* Str2 );
-bool endsWith( const char* Str1, const char* Str2 );
+// bool endsWith( const char* Str1, const char* Str2 );
 char* makeEmptyString( bool* Error );
 char* makeStrCopy( const char* ToCopy, bool* Error );
 char* cat( char* Str1, char* Str2, bool* Error );
@@ -59,10 +51,12 @@ typedef struct PNode {
 	unsigned short sizeOfChildren;
 	char* value;
 	char* key;
-	bool root;
+	// bool root;
 } PNode;
 
+#ifdef DEBUGPR
 char* getKey( const PNode* Self, bool* Error );
+#endif
 size_t longestPrefix( const PNode* Self, const char* Key );
 /* const PNode* _findByKey( const PNode* Self, const char* Key, bool MatchExact ); */
 const PNode* _findByKey( const PNode* Self, const char* MyKey, const char* Key, bool MatchExact );
@@ -91,7 +85,7 @@ PNode* makeNewPNode( bool* Error )
 	}
 	
 	NewNode->value = NULL;
-	NewNode->root = false;
+	// NewNode->root = false;
 
 	return NewNode;
 }
@@ -168,13 +162,14 @@ char* _getKey( const PNode* Self )
 	return Self->key;
 }
 
+#ifdef DEBUGPR
 char* _getPrefix( const PNode* Self, bool* Error )
 {
 	char* Return;
 	char* Tmp;
 	PNode* Parent;
 
-	if( true == Self->parent->root )
+	if( NULL == Self->parent )
 	{
 		return makeEmptyString( Error );
 	}
@@ -187,7 +182,7 @@ char* _getPrefix( const PNode* Self, bool* Error )
 			return NULL;
 		}
 
-		while( false == Parent->root )
+		while( NULL != Parent )
 		{
 			Tmp = cat( Parent->key, Return, Error );
 			free( Return );
@@ -204,6 +199,7 @@ char* _getPrefix( const PNode* Self, bool* Error )
 		return Return;
 	}
 }
+#endif
 
 size_t longestPrefix( const PNode* Self, const char* Key )
 {
@@ -259,6 +255,7 @@ void setKey( PNode* Self, const char* Key, bool PreventCopy, bool* Error )
 	}
 }
 /*----------------------------------Reading----------------------------------*/
+#ifdef DEBUGPR
 char* getKey( const PNode* Self, bool* Error )
 {
 	char* Prefix;
@@ -287,6 +284,7 @@ char* getKey( const PNode* Self, bool* Error )
 		return Return;
 	}
 }
+#endif
 
 short __searchForChild( const PNode* Self, char Key )
 {
@@ -383,8 +381,8 @@ const PNode* _findByKey( const PNode* Self, const char* Key, bool MatchExact )
 			StrStart,
 			MatchExact
 	);
-}*/
-
+}
+*/
 const PNode* _findByKey( const PNode* Self, const char* MyKey, const char* Key, bool MatchExact )
 {
 	short Index;
@@ -410,10 +408,10 @@ const PNode* _findByKey( const PNode* Self, const char* MyKey, const char* Key, 
 			}
 		}
 
-		if( true == startsWith( StrStart, MyKey )  && false == CurrentNode->root )
+		//if( true == startsWith( StrStart, MyKey ) && false == CurrentNode->root )
+		if( true == startsWith( StrStart, MyKey ) && NULL != CurrentNode->parent )
 		{
 			StrStart = (char *)StrStart + ( strlen( MyKey ) * sizeof( char ) );
-			continue;
 		}
 	
 		Index = __searchForChild( CurrentNode, StrStart[ 0 ] );
@@ -439,7 +437,8 @@ const PNode* findByKey(
 	const char* MyKey;
 	const PNode* Return;
 	bool MakeFree = false;
-	
+
+#ifdef DEBUGPR
 	if( true == IsPrefixed )
 	{
 		MakeFree = true;
@@ -453,7 +452,11 @@ const PNode* findByKey(
 	{
 		MyKey = _getKey( Self );
 	}
-	
+#endif
+	if( true == IsPrefixed ){}
+	if( true == *Error ){}
+	MyKey = _getKey( Self );
+
 	/*Return = _commonPrefix(
 		Self,
 		MyKey,
@@ -1023,7 +1026,7 @@ PNode* _insert(
 				return NULL;
 			}
 			
-			setKey( CurrentNode, NewKey, true, Error );
+			setKey( CurrentNode, NewKey, true, Error );// note: no error check needed -> we just reuse the given pointer
 			Tmp = CurrentNode->parent;
 			
 			Return = _appendChild(
@@ -1104,6 +1107,7 @@ const PNode* insert(
 	}
 }
 /*----------------------------------Debug------------------------------------*/
+#ifdef DEBUGPR
 void printKeys( const PNode* Self, bool* Error )
 {
 	unsigned short Index;
@@ -1126,6 +1130,7 @@ void printKeys( const PNode* Self, bool* Error )
 		printKeys( Self->children[ Index ], Error );
 	}
 }
+#endif
 /*===================================Utils===================================*/
  char* makeStrCopy( const char* ToCopy, bool* Error )
 {
@@ -1161,13 +1166,17 @@ char* makeEmptyString( bool* Error )
 	EmptyString[ 0 ] = '\0';
 	return EmptyString;
 }
+/* Predefine globals */
+PNode* Dictionary;
+FILE* CurrentSource;
 /**
  * Prints a error-message to stderr and quits the programm
  * @param Message | const char* | the message
  */
 void errorAndOut( const char* Message )
 {
-	fclose( stdin );
+	fclose( CurrentSource );
+	destroyPNode( Dictionary, true );
 	fprintf( stderr, "\n%s\n", Message);
 	fflush( stderr );
 	exit( EXIT_ERR );
@@ -1238,12 +1247,10 @@ bool startsWith( const char* Str1, const char* Str2 )
 	return true;
 }
 
+/*
 bool endsWith( const char* Str1, const char* Str2 )
 {
-	register size_t Len1;
-	register size_t Len2;
-	register size_t Offset;
-	register size_t Index;
+	size_t Len1, Len2, Offset, Index;
 	Len1 = strlen( Str1 );
 	Len2 = strlen( Str2 );
 	
@@ -1268,7 +1275,7 @@ bool endsWith( const char* Str1, const char* Str2 )
 
 	return true;
 }
-
+*/
 char* cat( char* Str1, char* Str2, bool* Error )
 {
 	size_t PayloadSize;
@@ -1301,7 +1308,6 @@ size_t min( size_t A, size_t B )
 */
 bool EarlyExit;
 short Return;
-PNode* Dictionary;
 /*----------------------------------DICT--------------------------------------*/
 void readInputFile( char* Path );
 wint_t nextChar( FILE* Source );
@@ -1347,7 +1353,7 @@ int main( int ArgC, char* Arguments[] )
 	signal( SIGTERM, makeEarlyExit );
 	
 	Dictionary = makeNewPNode( &Error );
-	Dictionary->root = true;
+	// Dictionary->root = true;
 	if( true == Error )
 	{
 		errorAndOut( "Something seems wrong with the memory. Over and out." );
@@ -1372,9 +1378,9 @@ int main( int ArgC, char* Arguments[] )
 #endif
 	
 	evilFromStdin();
+	printf( "\n" );
 
 	destroyPNode( Dictionary, true );
-
 	if( 0 != Return )
 	{
 		exit( EXIT_FAILURE );
@@ -1391,10 +1397,10 @@ void readInputFile( char* Path )
 	if( !FilePointer || ferror( FilePointer ) )
 	{
 		snprintf( ErrorMsg, 120, "Cannot open given file (%s).", Path );
-		destroyPNode( Dictionary, true );
 		errorAndOut( ErrorMsg );
     }
 
+	CurrentSource = FilePointer;
 	parseDict( FilePointer );
 
 	fclose( FilePointer );
@@ -1426,21 +1432,25 @@ void parseDict( FILE* Source )
 	Key = makeEmptyString( &Error );
 	if( true == Error )
 	{
-		fclose( Source );
-		destroyPNode( Dictionary, true );
 		errorAndOut( "Something went wrong with the memory, jim." );
 	}
 
 	Value = makeEmptyString( &Error );
 	if( true == Error )
 	{
-		fclose( Source );
 		free( Key );
-		destroyPNode( Dictionary, true );
 		errorAndOut( "I cannot get enough mem...." );
 	}
 
 	LookAHead = nextChar( Source );
+
+	/* Die leere Eingabe ist eine gültige Eingabe. Das gilt sowohl für das Wörterbuch als auch für den Übersetzungstext.*/
+	if( WEOF == LookAHead )
+	{
+		free( Key );
+		free( Value );
+		return;
+	}
 
 	while( WEOF != LookAHead )
 	{
@@ -1448,10 +1458,8 @@ void parseDict( FILE* Source )
 		LookAHead = nextChar( Source );
 		if( ferror( Source ) )
 		{
-			fclose( Source );
 			free( Key );
 			free( Value );
-			destroyPNode( Dictionary, true );
 			errorAndOut( "I/O error when reading." );
 		}
 
@@ -1488,8 +1496,6 @@ void parseDict( FILE* Source )
 			{
 				free( Key );
 				free( Value );
-				fclose( Source );
-				destroyPNode( Dictionary, true );
 				snprintf( 
 						ErrorMsg, 
 						150, 
@@ -1516,10 +1522,8 @@ void parseDict( FILE* Source )
 		{
 			if( 0 == Mode )
 			{
-				fclose( Source );
 				free( Key );
 				free( Value );
-				destroyPNode( Dictionary, true );
 				snprintf(
 						ErrorMsg,
 						120,
@@ -1536,8 +1540,6 @@ void parseDict( FILE* Source )
 
 			if( true == MemError )
 			{
-				fclose( Source );
-				destroyPNode( Dictionary, true );
 				snprintf(
 					ErrorMsg,
 					120,
@@ -1549,16 +1551,12 @@ void parseDict( FILE* Source )
 
 			if( true == Error )
 			{
-				fclose( Source );
-				destroyPNode( Dictionary, true );
 				snprintf( ErrorMsg, 120, "Repeated entry detected on Line %lu.", Line );
 				errorAndOut( ErrorMsg );
 			}
 
 			if( true == EarlyExit )
 			{
-				fclose( Source );
-				destroyPNode( Dictionary, true );
 				errorAndOut( "Interrupted - closing savely." );
 			}
 
@@ -1570,17 +1568,13 @@ void parseDict( FILE* Source )
 			Key = makeEmptyString( &Error );
 			if( true == Error )
 			{
-				fclose( Source );
-				destroyPNode( Dictionary, true );
 				errorAndOut( "There is something wrong with, the memory, Sir!" );
 			}
 			
 			Value = makeEmptyString( &Error );
 			if( true == Error )
 			{
-				fclose( Source );
 				free( Key );
-				destroyPNode( Dictionary, true );
 				errorAndOut( "There is no space left." );
 			}
 			
@@ -1592,10 +1586,8 @@ void parseDict( FILE* Source )
 		 */
 		if( 'a' > CurrentChar || 'z' < CurrentChar )
 		{
-			fclose( Source );
 			free( Key );
 			free( Value );
-			destroyPNode( Dictionary, true );
 			snprintf(
 					ErrorMsg,
 					120,
@@ -1615,10 +1607,8 @@ void parseDict( FILE* Source )
 		{
 			if( false == pushToBuffer( &Key, (char )CurrentChar ) )
 			{
-				 fclose( Source );
 				 free( Key );
 				 free( Value );
-				 destroyPNode( Dictionary, true );
 				 errorAndOut( "Memory breach...." );
 			}	
 		}
@@ -1626,10 +1616,8 @@ void parseDict( FILE* Source )
 		{
 			if( false == pushToBuffer( &Value, (char )CurrentChar ) )
 			{
-				fclose( Source );
 				free( Key );
 				free( Value );
-				destroyPNode( Dictionary, true );
 				errorAndOut( "Just annother memory error message." );
 			}
 		}
@@ -1642,8 +1630,6 @@ void parseDict( FILE* Source )
 	/* Rule: Ein anderes Zeichen als ein Kleinbuchstabe, Doppelpunkt oder Linefeed tritt auf. */
 	if( 0 != DoneFirstChar )
 	{
-		fclose( Source );
-		destroyPNode( Dictionary, true );
 		errorAndOut( "The given dictionary is incorrectly formed - Missing linefeed before end of file." );
 	}
 }
@@ -1688,28 +1674,25 @@ void evilFromStdin()
 	/* --- */
 	char* Translation;
 	register wint_t CurrentChar;
-	bool DoneFirstChar;
 	bool UpperCase;
 	bool Error;
 
 	Error = false;
-	
+	CurrentSource = stdin;
+
 	CaseSentive = makeEmptyString( &Error );
 	if( true == Error )
 	{
-		destroyPNode( Dictionary, true );
 		errorAndOut( "Memory fail...." );
 	}
 
 	CaseInSensitive = makeEmptyString( &Error );
 	if( true == Error )
 	{
-		destroyPNode( Dictionary, true );
 		errorAndOut( "And we are out - Memory fail...." );
 	}
 
 
-	DoneFirstChar = false;
 	UpperCase = false;
 	CurrentChar = nextChar( stdin );
 	
@@ -1719,7 +1702,6 @@ void evilFromStdin()
 		{
 			free( CaseInSensitive );
 			free( CaseSentive );
-			destroyPNode( Dictionary, true );
 			errorAndOut( "I/O error when reading from stdin." );
 		}
 
@@ -1727,18 +1709,16 @@ void evilFromStdin()
 		{
 			free( CaseInSensitive );
 			free( CaseSentive );
-			destroyPNode( Dictionary, true );
 			errorAndOut( "Interrupted - closing savely." );
 		}
 
 		/* Der eingegebene Text (stdin) sei genau dann gültig, wenn er ausschließlich die Zeichen 10
 		 * (line feed) sowie 32–126(inklusive) enthält.
 		 */
-		if( 10 != CurrentChar && ( 32 > CurrentChar || 126 < CurrentChar ) )
+		if( 10 != CurrentChar && ( ' ' > CurrentChar || '~' < CurrentChar ) )
 		{
 			free( CaseInSensitive );
 			free( CaseSentive );
-			destroyPNode( Dictionary, true );
 			errorAndOut( "Illeagl input from stdin in detected." );
 		}
 
@@ -1748,13 +1728,11 @@ void evilFromStdin()
 		 */
 		if( 'A' <= CurrentChar && 'Z' >= CurrentChar )
 		{
-			UpperCase = true;
-			
+			UpperCase = true&!(0<strlen(CaseInSensitive));
 			if( false == pushToBuffer( &CaseInSensitive, (char )( CurrentChar + TO_LOWER ) ) )
 			{
 				free( CaseSentive );
 				free( CaseInSensitive );
-				destroyPNode( Dictionary, true );
 				errorAndOut( "Ohhhhh memory fail......" );
 			}
 
@@ -1762,7 +1740,6 @@ void evilFromStdin()
 			{
 				free( CaseSentive );
 				free( CaseInSensitive );
-				destroyPNode( Dictionary, true );
 				errorAndOut( "And the memory is out......" );
 			}
 			
@@ -1770,9 +1747,9 @@ void evilFromStdin()
 			continue;
 		}
 		
-		if( ( 'a' > CurrentChar || 'z' < CurrentChar ) )// && ( 'A' > CurrentChar || 'Z' < CurrentChar ) )
+		if( 'a' > CurrentChar || 'z' < CurrentChar )// && ( 'A' > CurrentChar || 'Z' < CurrentChar ) )
 		{
-			if( true == DoneFirstChar )
+			if( 0 < strlen( CaseInSensitive ) )
 			{
 				Translation = findValueByKey( 
 					Dictionary,
@@ -1786,7 +1763,6 @@ void evilFromStdin()
 				{
 					free( CaseSentive );
 					free( CaseInSensitive );
-					destroyPNode( Dictionary, true );
 					errorAndOut( "Why you do this...there is nothing left..." );
 				}
 
@@ -1803,16 +1779,15 @@ void evilFromStdin()
 					}
 
 					printf( "%s", Translation );
-					free( Translation );
 				}
 
+				free( Translation );
 				free( CaseSentive );
 				free( CaseInSensitive );
 				
 				CaseSentive = makeEmptyString( &Error );
 				if( true == Error )
 				{
-					destroyPNode( Dictionary, true );
 					errorAndOut( "Nope, there is no memory left...I am sorry" );
 				}
 
@@ -1820,15 +1795,12 @@ void evilFromStdin()
 				if( true == Error )
 				{
 					free( CaseSentive );
-					destroyPNode( Dictionary, true );
 					errorAndOut( "End of the line bro, there is no memory left..." );
 				}
-
 			}
 
 			printf( "%c", (char )CurrentChar );
 			UpperCase = false;
-			DoneFirstChar = false;
 			CurrentChar = nextChar( stdin );
 			continue;
 		}
@@ -1837,7 +1809,6 @@ void evilFromStdin()
 		{
 			free( CaseSentive );
 			free( CaseInSensitive );
-			destroyPNode( Dictionary, true );
 			errorAndOut( "Oh my - no no memory......" );
 		}
 		
@@ -1845,15 +1816,14 @@ void evilFromStdin()
 		{
 			free( CaseSentive );
 			free( CaseInSensitive );
-			destroyPNode( Dictionary, true );
 			errorAndOut( "Wow you hit the last memory fail message possible." );
 		}
 
-		DoneFirstChar = true;
 		CurrentChar = nextChar( stdin );
 	}
 
 	free( CaseSentive );
 	free( CaseInSensitive );
+	
+	fclose( stdin );
 }
-
