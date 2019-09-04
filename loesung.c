@@ -34,6 +34,9 @@
 #ifndef EXIT_ERR
 #define EXIT_ERR 23
 #endif
+#ifndef EXIT_ILE
+#define EXIT_ILE 1
+#endif
 
 /*=============================Globals( Pseudo Head )==========================*/
 unsigned long min( unsigned long A, unsigned long B );
@@ -1383,9 +1386,9 @@ int main( int ArgC, char* Arguments[] )
 	destroyPNode( Dictionary, true );
 	if( 0 != Return )
 	{
-		exit( EXIT_FAILURE );
+		exit( EXIT_ILE );
 	}
-	return EXIT_SUCCESS;
+	return 0;
 }
 
 /*----------------------------------DICT--------------------------------------*/
