@@ -39,7 +39,7 @@
 #endif
 
 /*=============================Globals( Pseudo Head )==========================*/
-unsigned long min( unsigned long A, unsigned long B );
+size_t min( size_t A, size_t B );
 void errorAndOut( const char* Message );
 char* substring( char* Source, size_t From, size_t Length, bool* Error );
 bool startsWith( const char* Str1, const char* Str2 );
