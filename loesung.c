@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdbool.h>
 #include <wchar.h>
 #include <signal.h>
@@ -49,11 +50,11 @@ char* makeStrCopy( const char* ToCopy, bool* Error );
 char* cat( char* Str1, char* Str2, bool* Error );
 /*===============================PatricaTrie Defs==============================*/
 typedef struct PNode {
-	struct PNode* parent;
-	struct PNode** children;
-	unsigned short sizeOfChildren;
-	char* value;
-	char* key;
+	uintptr_t parent;
+	uintptr_t children;
+	char sizeOfChildren;
+	uintptr_t value;
+	uintptr_t key;
 	// bool root;
 } PNode;
 
@@ -76,18 +77,18 @@ PNode* makeNewPNode( bool* Error )
 		return NULL;
 	}
 
-	NewNode->parent = NULL;
-	NewNode->children = NULL;
+	NewNode->parent = 0;
+	NewNode->children = 0;
 	NewNode->sizeOfChildren = 0;
 	
-	NewNode->key = makeEmptyString( Error );
-	if( NULL == NewNode->key )
+	NewNode->key = (intptr_t)makeEmptyString( Error );
+	if( 0 == NewNode->key )
 	{
 		free( NewNode );
 		return NULL;
 	}
 	
-	NewNode->value = NULL;
+	NewNode->value = 0;
 	// NewNode->root = false;
 
 	return NewNode;
@@ -119,12 +120,12 @@ void destroyPNode( PNode* Node, bool Recursive )
 
 void _freeNode( PNode* Node )
 {
-	free( Node->children );
-	free( Node->key );
+	free( ( PNode** )Node->children );
+	free( (char*) Node->key );
 	
-	if( NULL != Node->value )
+	if( 0 != Node->value )
 	{   
-		free( Node->value );
+		free( (char*) Node->value );
 	}
 	
 	free( Node );
@@ -138,12 +139,12 @@ void _iterativeRevemovel( PNode* Root )
 	while( 0 < Root->sizeOfChildren )
 	{
 		Parent = Root;
-		CurrentNode = Root->children[ Root->sizeOfChildren-1 ];
+		CurrentNode = (( PNode** )Root->children)[ Root->sizeOfChildren-1 ];
 		
 		while( 0 < CurrentNode->sizeOfChildren )
 		{
 			Parent = CurrentNode;
-			CurrentNode = Parent->children[ Parent->sizeOfChildren-1 ];
+			CurrentNode = (( PNode** )CurrentNode->children)[ Parent->sizeOfChildren-1 ];
 		}
 		
 		Parent->sizeOfChildren--;
@@ -162,7 +163,7 @@ void destroyPNode( PNode* Node, bool Purge )
 /*------------------------------------Basement-------------------------------*/
 char* _getKey( const PNode* Self )
 {
-	return Self->key;
+	return (char* )Self->key;
 }
 
 #ifdef DEBUGPR
@@ -230,31 +231,31 @@ size_t longestPrefix( const PNode* Self, const char* Key )
 
 void setValue( PNode* Self, const char* Value, bool* Error )
 {
-	if( NULL != Value )
+	if( 0 != Value )
 	{
-		if( NULL != Self->value )
+		if( 0 != Self->value )
 		{
-			free( Self->value );
+			free( (char* )Self->value );
 		}
-		Self->value = makeStrCopy( Value, Error );
+		Self->value = (intptr_t )makeStrCopy( Value, Error );
 	}
 }
 
 char* getValue( const PNode* Self, bool* Error )
 {
-	return makeStrCopy( Self->value, Error );
+	return makeStrCopy( (char* )Self->value, Error );
 }
 
 void setKey( PNode* Self, const char* Key, bool PreventCopy, bool* Error )
 {
-	free( Self->key );
+	free( (char* )Self->key );
 	if( true == PreventCopy )
 	{
-		Self->key = (char *) Key;	
+		Self->key = (intptr_t )Key;	
 	}
 	else
 	{
-		Self->key = makeStrCopy( Key, Error );
+		Self->key = (intptr_t )makeStrCopy( Key, Error );
 	}
 }
 /*----------------------------------Reading----------------------------------*/
@@ -289,19 +290,29 @@ char* getKey( const PNode* Self, bool* Error )
 }
 #endif
 
-short __searchForChild( const PNode* Self, char Key )
+short __searchForChild( const PNode* Self, register char Key )
 {
-	short Start, End, Middle;
+	register short Start;
+	register short End;
+	register short Middle;
+	register char MyKey;
 
-	if( 0 == Self->sizeOfChildren || _getKey( Self->children[ 0 ] )[0] > Key )
+	if( 0 == Self->sizeOfChildren )
 	{
 		return -1;
 	}
 
+	MyKey = _getKey( ((PNode** )Self->children)[ 0 ] )[0];
+
+	if( MyKey > Key )
+	{
+		return -1;
+	}
 	Start = 0;
 	End = Self->sizeOfChildren-1;
 	
-	if ( _getKey( Self->children[ End ] )[0] < Key )
+	 MyKey = _getKey( ((PNode** )Self->children)[ End ] )[ 0 ];
+	if ( MyKey < Key )
 	{
 		return -1;
 	}
@@ -309,16 +320,17 @@ short __searchForChild( const PNode* Self, char Key )
 	while ( Start <= End )
 	{
 		Middle = ( ( Start + End ) >> 1 );
+		 MyKey = _getKey( ((PNode** )Self->children)[ Middle ] )[ 0 ];
 		if( Middle > Self->sizeOfChildren ) 
 		{
 			return -1;
 		}
 
-		if ( Key > _getKey( Self->children[ Middle ])[0] )
+		if ( Key > MyKey )
 		{
 			Start = Middle + 1;
 		}
-		else if ( Key < _getKey( Self->children[ Middle ])[0] )
+		else if ( Key < MyKey )
 		{
 			End = Middle - 1;
 		}
@@ -412,7 +424,7 @@ const PNode* _findByKey( const PNode* Self, const char* MyKey, const char* Key, 
 		}
 
 		//if( true == startsWith( StrStart, MyKey ) && false == CurrentNode->root )
-		if( true == startsWith( StrStart, MyKey ) && NULL != CurrentNode->parent )
+		if( true == startsWith( StrStart, MyKey ) && 0 != CurrentNode->parent )
 		{
 			StrStart = (char *)StrStart + ( strlen( MyKey ) * sizeof( char ) );
 		}
@@ -423,7 +435,7 @@ const PNode* _findByKey( const PNode* Self, const char* MyKey, const char* Key, 
 			return NULL;
 		}
 
-		CurrentNode = CurrentNode->children[ Index ];
+		CurrentNode = ((PNode**) CurrentNode->children)[ Index ];
 		MyKey = _getKey( CurrentNode );
 	}
 	while( true );
@@ -495,7 +507,7 @@ const PNode* findEndPointByKey(
 	Node = findByKey( Self, Key, Error, IsPrefixed, MatchExact );
 	if( NULL != Node )
 	{
-		if( NULL != Node->value )
+		if( 0 != Node->value )
 		{
 			return Node;
 		}
@@ -531,21 +543,30 @@ char* findValueByKey(
 	}
 }
 
-short _insertPosition( const PNode* Self, char Key )
+short _insertPosition( const PNode* Self, register char Key )
 {
 	register short Start;
 	register short End;
 	register short Middle;
+	register char MyKey;
 
-	if( 0 == Self->sizeOfChildren || _getKey( Self->children[ 0 ] )[0] > Key )
+	if( 0 == Self->sizeOfChildren )
+	{
+		return -1;
+	}
+
+	MyKey = _getKey( ((PNode** )Self->children)[ 0 ] )[0];
+
+	if( MyKey > Key )
 	{
 		return -1;
 	}
 
 	Start = 0;
 	End = Self->sizeOfChildren-1;
+	MyKey = _getKey( ((PNode** )Self->children)[ End ] )[0];
 
-	if ( _getKey( Self->children[ End ] )[0] < Key )
+	if ( MyKey < Key )
 	{
 		return -( Self->sizeOfChildren + 1 );
 	}
@@ -558,11 +579,12 @@ short _insertPosition( const PNode* Self, char Key )
 			return -( Start + 1 );
 		}
 
-		if ( Key > _getKey( Self->children[ Middle ] )[0] )
+		MyKey = _getKey( ((PNode** )Self->children)[ Middle ])[ 0 ];
+		if ( Key > MyKey )
 		{
 			Start = Middle + 1;
 		}
-		else if ( Key < _getKey( Self->children[ Middle ] )[0] )
+		else if ( Key < MyKey )
 		{
 			End = Middle - 1;
 		}
@@ -577,8 +599,8 @@ short _insertPosition( const PNode* Self, char Key )
 
 void __setChildParent( PNode* Parent, PNode* Child, unsigned short Index )
 {
-	Child->parent = Parent; 
-	Parent->children[ Index ] = Child;
+	Child->parent = (uintptr_t )Parent; 
+	((PNode** )Parent->children)[ Index ] = Child;
 }
 
 PNode* __appendChild( PNode* Where, PNode* NewChild, register unsigned short PlaceToBe, bool* Error )
@@ -607,7 +629,7 @@ PNode* __appendChild( PNode* Where, PNode* NewChild, register unsigned short Pla
 			return NULL;
 		}
 
-		memcpy( NewChildren, Where->children, Where->sizeOfChildren*sizeof( PNode* ) );
+		memcpy( NewChildren, ((PNode**)Where->children), Where->sizeOfChildren*sizeof( PNode* ) );
 	
 		/* Splicing */
 
@@ -615,14 +637,14 @@ PNode* __appendChild( PNode* Where, PNode* NewChild, register unsigned short Pla
 		
 		for( Index = PlaceToBe+1, Index2 = PlaceToBe; NewSize > Index; Index++, Index2++ )
 		{
-			NewChildren[ Index ] = Where->children[ Index2 ];
+			NewChildren[ Index ] = ((PNode**)Where->children)[ Index2 ];
 		}
 	}
 
-	free( Where->children );
+	free( (PNode**) Where->children );
 	
 	Where->sizeOfChildren++;
-	Where->children = NewChildren;
+	Where->children = (uintptr_t) NewChildren;
 	__setChildParent( ( PNode* ) Where, ( PNode* )NewChild, PlaceToBe );
 	
 	return NewChild;
@@ -681,13 +703,13 @@ PNode* _appendChild(
 {
 	short Index;
 
-	Index = _insertPosition( Self, Child->key[ 0 ] );
+	Index = _insertPosition( Self, ((char* ) Child->key )[ 0 ] );
 
 	if( -1 < Index )
 	{
 		if( true == Force )
 		{
-			Self->children[ Index ] = Child;
+			((PNode**)Self->children)[ Index ] = Child;
 			return Child;
 		}
 		else
@@ -938,7 +960,7 @@ PNode* _insert(
 			
 			if( -1 < Index )
 			{
-				CurrentNode = CurrentNode->children[ Index ];
+				CurrentNode = ((PNode**)CurrentNode->children)[ Index ];
 				continue;
 			}
 			else
@@ -949,7 +971,7 @@ PNode* _insert(
         }
         else if( PrefixLength == InsertKeyLength && PrefixLength == KeyLength )
         {
-			if( NULL == CurrentNode->value )
+			if( 0 == CurrentNode->value )
 			{
 				setValue( CurrentNode, Value, Error );
 				if( true == *Error )
@@ -962,8 +984,8 @@ PNode* _insert(
 			
 			if( true == Force )
 			{
-				free( CurrentNode->value );
-				CurrentNode->value = NULL;
+				free( (char* )CurrentNode->value );
+				CurrentNode->value = 0;
 				setValue( CurrentNode, Value, Error );
 				if( true == *Error )
 				{
@@ -987,7 +1009,7 @@ PNode* _insert(
 			Index = _insertPosition( CurrentNode, Key[ 0 ] );
 			if( 0 <= Index )
 			{
-				CurrentNode = CurrentNode->children[ Index ];
+				CurrentNode = ((PNode**)CurrentNode->children)[ Index ];
 				continue;
 			}
 			else
@@ -998,7 +1020,7 @@ PNode* _insert(
 		}
 		else if( PrefixLength == InsertKeyLength )
         {
-			Index = __searchForChild( CurrentNode->parent, _getKey( CurrentNode )[ 0 ] );
+			Index = __searchForChild( (PNode* )CurrentNode->parent, _getKey( CurrentNode )[ 0 ] );
 			NewKey = substring( _getKey( CurrentNode ), PrefixLength, strlen( _getKey( CurrentNode ) ), Error );
 			
 			if( NULL == NewKey )
@@ -1030,7 +1052,7 @@ PNode* _insert(
 			}
 			
 			setKey( CurrentNode, NewKey, true, Error );// note: no error check needed -> we just reuse the given pointer
-			Tmp = CurrentNode->parent;
+			Tmp = (PNode* ) CurrentNode->parent;
 			
 			Return = _appendChild(
 					NewParent,
@@ -1046,7 +1068,7 @@ PNode* _insert(
 			}
 			
 			__setChildParent( Tmp, NewParent, Index  );
-			NewParent->parent = Tmp;
+			NewParent->parent = (uintptr_t) Tmp;
 			return NewParent;
         }
 		else
@@ -1101,7 +1123,7 @@ const PNode* insert(
 	Index = _insertPosition( Self, Key[ 0 ] );
 	if( -1 < Index )
 	{
-		return _insert( Self->children[ Index ], Key, Value, Force, Error );
+		return _insert( ((PNode**)Self->children)[ Index ], Key, Value, Force, Error );
 	}
 	else
 	{
